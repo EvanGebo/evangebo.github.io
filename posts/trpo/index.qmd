@@ -19,6 +19,7 @@ $$
 \newcommand{\L}{\mathcal{L}}
 \newcommand{\A}{\mathcal{A}}
 \newcommand{\S}{\mathcal{S}}
+\newcommand{\N}{\mathbb{N}}
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\t}{\boldsymbol\theta}
 $$
@@ -42,14 +43,14 @@ $$
 
 # Introduction {#sec-introduction}
 
-Consider the standard infinite-horizon[^1] Markov decision process setup with states $s \in \S$, actions $a \in A$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition distribution $p(s', r \mid s, a)$, and initial state distribution $\rho_0(s)$. The policy that the agent follows is then a distribution $\pi(a \mid s)$. Remember that the value function $V^\pi$ and the action-value function $Q^\pi$ are defined as
+Consider the standard infinite-horizon[^1] Markov decision process setup with states $s \in \S$, actions $a \in \A$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition distribution $p(s', r \mid s, a)$, and initial state distribution $\rho_0(s)$. The policy that the agent follows is then a distribution $\pi(a \mid s)$. Remember that the value function $V^\pi$ and the action-value function $Q^\pi$ are defined as
 $$
 \begin{align*}
 V^\pi(s) &= \E_{\tau \sim \pi}\left[ \sum_{t=0}^\infty \gamma^t r_t \;\middle|\; s_0 = s \right] \\
 Q^\pi(s, a) &= \E_{\tau \sim \pi}\left[ \sum_{t=0}^\infty \gamma^t r_t \;\middle|\; s_0 = s, a_0 = 0 \right],
 \end{align*}
 $$
-where $\E_{\tau \sim \pi}$ is a shorthand for an expectation over $s_0 \sim \rho_0$, $a_t \sim \pi(\cdot \mid a_t)$, and $s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)$.
+where $\E_{\tau \sim \pi}$ is a shorthand for an expectation over $s_0 \sim \rho_0$, $a_t \sim \pi(\cdot \mid a_t)$, and $s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)$ for $t \in \N$.
 
 
 [^1]: The proofs for the finite-horizon case are very similar, except with a few additional terms to deal with truncating the trajectories.
@@ -88,7 +89,7 @@ Ignoring the notation and technical details, due to something called the monoton
 
 [^policy-gradient]: This result follows from the policy gradient theorem. For a description of the REINFORCE algorithm and why it works, I recomend [@Seita_2017; @Weng_2018].
 
-### Step 1: Expected Returns to Performance Difference
+### Step 1: Expected returns $J(\pi)$ vs. the performance difference $\L(\pi)$
 
 In reinforcement learning, we seek to find the policy that optimizes the expected returns $J(\pi) = \E_{\tau \sim \pi}\left[ V^\pi(s_0) \right]$:
 $$
@@ -130,7 +131,7 @@ $$
 $$
 This is an interesting result since it allows us to access the performance of $\pi\old$ in terms of $\pi$! However, it doesn't help with sampling efficiently from $\pi\old$ yet.
 
-### Step 3: The State Distribution
+### Step 3: Rewriting using the state distribution
 
 An easy answer would just be to sample $\tau \sim \pi\old$ instead of $\pi \sim \tau$. However, there's no guarantee on how good of an approximation this would be! However, there is a way forward if we use the state distribution $\rho_\pi$ instead. Remember that the state distribution is defined as
 $$
@@ -143,44 +144,20 @@ $$
 
 [^3]: If it's not clear why this is possible, there are only two operations happening here: we introduce and distribute the fraction $\frac{1 - \gamma}{1 - \gamma}$, and we move the policy from the expectation to the probability term in $\rho_\pi$.
 
-### Step 4: Resampling
+### Step 4: Sampling from $\pi(\cdot \mid s)$ using $\pi\old(\cdot \mid s)$
 
-Now we have two distributions in terms of $\pi$: $\rho_\pi(s)$ and $\pi(a \mid s)$. Of these, $\pi(a \mid s)$ has a closed form, e.g. a neural network. Because of this, we can use importance sampling to replace it with $\rho_{\pi\old}(s)$:
+Importantly, $\pi(\cdot \mid s)$ has a closed-form, e.g. a neural network. We can use this to implement importance sampling to sample from $\pi\old(\cdot \mid s)$ instead:
 $$
 \L(\pi) = \E_{\substack{s \sim \rho_\pi \\ a \sim \pi\old(\cdot \mid s)}} \left[ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} A^{\pi\old}(s,a) \right].
 $$
-However, due to the complexity inherent in $\rho_\pi(s)$, it has no closed-form solution so we can't easily use importance sampling. However, this is another result that helps.
 
-Intuitively, if $\pi \approx \pi\old$, then it would make sense that $\rho_\pi \approx \rho_{\pi\old}$. Therefore if we use an iterative method like gradient descent with a well-tuned step size, it should be the case that sampling from $\rho_{\pi\old}$ might be ok to do.
+### Step 4: Sampling from $\rho_\pi$ using $\rho_{\pi\old}$
 
-### Other Stuff
-
-Since $\pi$ and $\pi\old$ both share the same initial state distribution $\rho_0$, we see that $\E_{\tau \sim \pi}\left[ V^{\pi\old}(s_0) \right] = \E_{\pi\old}\left[ V^{\pi\old}(s_0) \right]$. Now rewriting in terms of the state distribution $\rho_\pi$ gives
+Unfortanantly, $\rho_\pi$ has no closed-form solution, so we can't use importance sampling since this requires being able to calculate (or at least accurately estimate) the probability ratio. This is where the main jump of the surrogate objective function is: what if we just approximate $\rho_\pi$ with $\rho_{\pi\old}$? This gives rise to the surrogate avantage function
 $$
-\E_{\tau \sim \pi}\left[ V^{\pi}(s_0) \right] = \E_{\pi\old}\left[ V^{\pi\old}(s_0) \right] + \frac{1}{1 - \gamma}\E_{\substack{s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)}}\left[ A^{\pi\old}(s, a) \right].
+\L_{\pi\old}(\pi) = \E_{\substack{s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)}} \left[ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} A^{\pi\old}(s,a) \right]
 $$
-
-Remember that we define the state distribution as
-$$
-\rho_\pi(s) = (1 - \gamma) \sum_{t=0}^\infty \gamma^t \Pr(s_t = s \mid s_0 \sim \rho_0, \pi).
-$$
-
-
-It's more useful to consider this term alone, so we'll define the performance difference of two policies as
-$$
-\L(\pi) = \E_{\tau \sim \pi}\left[ V^\pi(s_0) \right] - \E_{\pi\old}\left[ V^{\pi\old}(s_0) \right] = \frac{1}{1 - \gamma}\E_{\substack{s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)}}\left[ A^{\pi\old}(s, a) \right].
-$$
-The expected value function is taken over $\pi\old$, however the expected advantage is taken over $\pi$, making it difficult to sample. Therefore we ask whether we can sample $s \sim \rho_\pi$ and $a \sim \pi(\cdot \mid s)$ in terms of $\pi\old$. The first of these is easy to sample using importance sampling, since
-$$
-\E_{\substack{s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)}}\left[ A^{\pi\old}(s, a) \right] = \E_{\substack{s \sim \rho_{\pi\old} \\ a \sim \pi(\cdot \mid s)}}\left[ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} A^{\pi\old}(s, a) \right].
-$$
-However, since we don't know the closed-form of $\rho_\pi$ (remember we calculate the expectation using Monte Carlo sampling, which doesn't require a closed form expression for $\rho_\pi$) we can't use importance sampling to sample from $\rho_{\pi\old}$ instead.
-
-However, what if we just approximated $\rho_\pi \approx \rho_{\pi\old}$? This gives rise to the surrogate objective function
-$$
-\L_{\pi\old}(\pi) = \E_{\substack{s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)}} \left[ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} A^{\pi\old}(s,a) \right].
-$$
-Notice that we drop the $\E_{\pi\old}\left[ V^{\pi\old}(s_0) \right]$ term, since it's independant of $\pi$ is doesn't contribute to the optimum.
+as an approximation for the performance difference $\L(\pi)$. The hope is that if the approximation $\rho_\pi \approx \rho_{\pi\old}$ is good, then the approximation $\L(\pi) \approx \L_{\pi\old}(\pi)$ will also be good.
 
 ## Surrogate Advantage vs. Performance Difference
 
