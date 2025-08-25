@@ -23,6 +23,10 @@ $$
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\t}{\boldsymbol\theta}
 $$
+
+```{=html}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+```
 :::
 
 | Notation                       | Definition                     |
@@ -171,8 +175,22 @@ which raises the question of how close $\L_{\pi\old}(\pi)$ is to $\L(\pi)$. Luck
 $$
 \E_{s \sim \rho_{\pi\old}}\bigg[ \KL\big(\pi(\cdot \mid s) \;\|\; \pi\old(\cdot \mid s)\big) \bigg] \leq \delta
 $$
-a trust regiion optimization step will always improve our policy[^2]. While there is an expression for $\delta$, it's difficult to calculate empirically, so it's generally tuned as a hyperparameter.
+a trust region optimization step will always improve our policy[^2]. While there is an expression for $\delta$, it's difficult to calculate empirically, so it's generally tuned as a hyperparameter.
 
 [^2]: The math here is quite a bit more technical, so I've skipped over it here. Long story short, they define a notion of "coupled" policies $\pi$ and $\pi'$ that are identical with high probability, and then use their limited disagreements to bound the error.
 
 # Principle Policy Optimization
+
+::: {#fig-test}
+
+::: {#d3-demo}
+```{=html}
+<script src="triangle.js"></script>
+```
+:::
+
+The probability simplex for a policy $\pi$.
+:::
+
+# Other stuff
+text
