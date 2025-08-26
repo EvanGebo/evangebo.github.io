@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", function() {
         .style("height", height + "px");
 
     // After container is created, add the label div
-    labelDiv = container.append("div")
+    labelDiv = container .append("div")
         .attr("id", "coord-label")
         .style("position", "absolute")
         .style("left", (width + 20) + "px")

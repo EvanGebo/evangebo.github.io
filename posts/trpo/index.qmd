@@ -181,15 +181,26 @@ a trust region optimization step will always improve our policy[^2]. While there
 
 # Principle Policy Optimization
 
-::: {#fig-test}
-
-::: {#d3-demo}
-```{=html}
-<script src="triangle.js"></script>
+::: {#fig-learning-rate}
+::: {#div-learning-rate}
+``` {=html}
+<script src="learning_rate_schedule.js"></script>
 ```
 :::
 
-The probability simplex for a policy $\pi$.
+The current learning rate schedule.
+:::
+
+This is some other text!
+
+::: {#fig-gradient-descent}
+::: {#div-gradient-descent}
+```{=html}
+<script src="gradient_descent.js"></script>
+```
+:::
+
+The gradient descent animation.
 :::
 
 # Other stuff
