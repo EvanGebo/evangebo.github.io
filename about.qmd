@@ -13,4 +13,4 @@ about:
 
 ---
 
-Hi all! I'm Evan, a machine learning research at Johns Hopkins Applied physics lab. This is my blog where I post about technical content.
+Hi all! I'm Evan, a machine learning researcher at Johns Hopkins Applied physics lab. This is my blog where I post about technical content.
