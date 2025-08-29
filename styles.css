@@ -2,6 +2,9 @@
 .quarto-float-caption {
   text-align: center;
 }
+/* .div-learning-rate .fig-learning-rate .figure .quarto-float-fig .quarto-float {
+  overflow: visible;
+} */
 
 input[type="range"] {
   -webkit-appearance: none;

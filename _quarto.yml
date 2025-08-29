@@ -1,5 +1,8 @@
 project:
   type: website
+  preview:
+    port: 4200
+    browser: false
 
 website:
   title: "Evan's Blog"
@@ -9,12 +12,16 @@ website:
       - icon: github
         href: https://github.com/EvanGebo/evangebo.github.io
   open-graph: true
+
 format:
   html:
+    respect-user-color-scheme: true
     theme:
       light: flatly
       dark: darkly
     css: styles.css
+    toc: true
+    toc-depth: 3
 
 bibliography: references.bib
 csl: ieee.csl

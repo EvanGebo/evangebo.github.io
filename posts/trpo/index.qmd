@@ -2,7 +2,7 @@
 title: "Trust Region Policy Optimization"
 author: "Evan Gebo"
 date: "2025-08-23"
-categories: [reinforcement learning]
+categories: [reinforcement learning, machine learning]
 citation: true
 appendix-cite-as: bibtex
 navbar: true
@@ -26,6 +26,8 @@ $$
 
 ```{=html}
 <script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
+<script src="utils.js"></script>
 ```
 :::
 
@@ -93,7 +95,7 @@ Ignoring the notation and technical details, due to something called the monoton
 
 [^policy-gradient]: This result follows from the policy gradient theorem. For a description of the REINFORCE algorithm and why it works, I recomend [@Seita_2017; @Weng_2018].
 
-### Step 1: Expected returns $J(\pi)$ vs. the performance difference $\L(\pi)$
+### **Step 1:** Expected returns $J(\pi)$ vs. the performance difference $\mathcal{L}(\pi)$
 
 In reinforcement learning, we seek to find the policy that optimizes the expected returns $J(\pi) = \E_{\tau \sim \pi}\left[ V^\pi(s_0) \right]$:
 $$
@@ -105,7 +107,7 @@ $$
 $$
 Note that since $\pi\old$ is independent of $\pi$, optimizing $J(\pi)$ is equivilent to optimizing $\L(\pi)$. This hasn't gained us anything mathematically, however expressing the objective in this form lets us more easily express everything in terms of $\pi\old$.
 
-### Step 2: The Performance Difference Lemma
+### **Step 2:** The Performance Difference Lemma
 
 Recall that the advantage function is defined in terms of the value function $V^\pi$ and the action-value function $Q^\pi$ as
 $$
@@ -135,7 +137,7 @@ $$
 $$
 This is an interesting result since it allows us to access the performance of $\pi\old$ in terms of $\pi$! However, it doesn't help with sampling efficiently from $\pi\old$ yet.
 
-### Step 3: Rewriting using the state distribution
+### **Step 3:** Rewriting using the state distribution
 
 An easy answer would just be to sample $\tau \sim \pi\old$ instead of $\pi \sim \tau$. However, there's no guarantee on how good of an approximation this would be! However, there is a way forward if we use the state distribution $\rho_\pi$ instead. Remember that the state distribution is defined as
 $$
@@ -148,14 +150,14 @@ $$
 
 [^3]: If it's not clear why this is possible, there are only two operations happening here: we introduce and distribute the fraction $\frac{1 - \gamma}{1 - \gamma}$, and we move the policy from the expectation to the probability term in $\rho_\pi$.
 
-### Step 4: Sampling from $\pi(\cdot \mid s)$ using $\pi\old(\cdot \mid s)$
+### **Step 4:** Sampling from $\pi(\cdot \mid s)$ using $\pi_\text{old}(\cdot \mid s)$
 
 Importantly, $\pi(\cdot \mid s)$ has a closed-form, e.g. a neural network. We can use this to implement importance sampling to sample from $\pi\old(\cdot \mid s)$ instead:
 $$
 \L(\pi) = \E_{\substack{s \sim \rho_\pi \\ a \sim \pi\old(\cdot \mid s)}} \left[ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} A^{\pi\old}(s,a) \right].
 $$
 
-### Step 4: Sampling from $\rho_\pi$ using $\rho_{\pi\old}$
+### **Step 5:** Sampling from $\rho_\pi$ using $\rho_{\pi_\text{old}}$
 
 Unfortanantly, $\rho_\pi$ has no closed-form solution, so we can't use importance sampling since this requires being able to calculate (or at least accurately estimate) the probability ratio. This is where the main jump of the surrogate objective function is: what if we just approximate $\rho_\pi$ with $\rho_{\pi\old}$? This gives rise to the surrogate avantage function
 $$
@@ -182,7 +184,7 @@ a trust region optimization step will always improve our policy[^2]. While there
 # Principle Policy Optimization
 
 ::: {#fig-learning-rate}
-::: {#div-learning-rate}
+::: {#div-learning-rate .column-body-outset}
 ``` {=html}
 <script src="learning_rate_schedule.js"></script>
 ```
