@@ -7,6 +7,7 @@ citation: true
 appendix-cite-as: bibtex
 navbar: true
 image: "image.jpg"
+draft: true
 ---
 
 ::: {.hidden}

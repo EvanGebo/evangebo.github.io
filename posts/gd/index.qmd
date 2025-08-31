@@ -2,17 +2,16 @@
 title: "Gradient Descent"
 description: "A few quick animations illustrating some of the pitfalls of gradient descent."
 author: "Evan Gebo"
-data: "2025-08-23"
+date: "2025-08-23"
 categories: [machine learning]
-citation: false
-appendix-cite-as: bibtex
-navbar: true
 ---
 
 ::: {.hidden}
 $$
 \newcommand{\t}{\boldsymbol\theta}
-\newcommand{\x}{\mathbf{x}}
+\newcommand{\x}{\mathbf x}
+\newcommand{\T}{^\top}
+\newcommand{\L}{\mathbf L}
 $$
 ```{=html}
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -34,6 +33,23 @@ We visualize the gradient descent problem in @fig-gradient-descent:
 
 Gradient descent performed on some sort of test function.
 :::
+
+## Theoretical Analysis
+
+$$\begin{align*}
+f(\x_{t+1}) &\leq (\x_t) + \nabla f(\x_t)\T(\x_{t+1} - \x_t) + \frac{1}{2}L\|\x_{t+1} - \x_t\|_2^2 \\
+&= f(\x_t) + \nabla f(\x_t)\T(\x_t - \alpha \nabla f(\x_t) - \x_t) + \frac{1}{2}L\|\x_t - \alpha\nabla f(\x_t) - \x_t\|_2^2 \\
+&= f(\x_t) - \alpha \|\nabla f(\x_t)\|_2^2 + \frac{1}{2}L\|\alpha\nabla f(\x_t)\|_2^2 \\
+&= f(\x_t) - \left( 1 - \frac{1}{2}L\alpha \right)\alpha\|\nabla f(\x_t)\|_2^2.
+\end{align*}$$
+Now if we assume that $\alpha \leq \frac{1}{L}$ we see that
+$$
+-\left( 1 - \frac{1}{2}L\alpha \right) = \frac{1}{2}L\alpha - 1 \leq -\frac{1}{2}.
+$$
+This simplifies the update step to
+$$
+f(\x_{t+1}) \leq f(\x_t) - \frac{1}{2}\alpha\|\nabla f(\x_t)\|_2^2.
+$$
 
 # Learning Rate
 
@@ -64,3 +80,7 @@ An exponential learning rate schedule defined by $\alpha_t = \alpha_0 r^t$ with 
         value.textContent = parseFloat(slider.value).toFixed(3);
     });
 </script>
+
+# Further Reading
+
+Modern machine learning generally uses a variant of the ADAM optimizer [@Kingma_Ba_2017], which is a variant of gradient descent including something called momentum. For an interactive explainer on momentum-based optimization methods, I highly recomend [@Goh_2017], which has very informative animations on the subject.

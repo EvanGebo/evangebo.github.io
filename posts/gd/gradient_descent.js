@@ -19,11 +19,15 @@ const M = window.UTILS.psdMatrix(1, 10, 1000);
 const functions = {
     "Goldstein-Price": {
         f: goldsteinPrice,
-        domain: { x: [-2, 2], y: [-2, 1]  },
+        fGrad: null,
+        fHess: null,
+        domain: { x: [-2, 2], y: [-2, 1] },
     },
     "Quadratic": {
         f: (x, y) => quadratic(M, math.matrix([x, y])),
-        domain: { x: [-2, 2], y: [-2, 2]  },
+        fGrad: (x, y) => quadraticGradient(M, math.matrix([x, y])),
+        fHess: (x, y) => quadraticHessian(M, math.matrix([x, y])),
+        domain: { x: [-2, 2], y: [-2, 2] },
     },
     "Rosenbrock": {
         f: (x, y) => {
@@ -31,11 +35,13 @@ const functions = {
             const b = 100;
             return (a - x) ** 2 + b * (y - x ** 2) ** 2;
         },
-        domain: { x: [-2, 2], y: [-1, 3]  },
+        fGrad: null,
+        fHess: null,
+        domain: { x: [-2, 2], y: [-1, 3] },
     }
 };
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
     const DIV = "#div-gradient-descent";
 
     const container = document.querySelector(DIV);
@@ -58,13 +64,10 @@ document.addEventListener("DOMContentLoaded", function() {
     title.style.fontSize = "1em";
     title.style.flex = "1 1 auto";
     title.style.textAlign = "left";
-    // Create two spans: one for label, one for status
     const statusLabel = document.createElement("span");
     statusLabel.textContent = "Status: ";
-    statusLabel.style.color = "#333";
     const statusValue = document.createElement("span");
     statusValue.textContent = "CONVERGED";
-    statusValue.style.color = "#333";
     title.appendChild(statusLabel);
     title.appendChild(statusValue);
 
@@ -111,21 +114,46 @@ document.addEventListener("DOMContentLoaded", function() {
     // Move the SVG node into the wrapper, after the top row
     uiWrapper.appendChild(svg.node());
 
-    const svgDomain  = { x: [ 0, w  ], y: [ w, 0  ] };
-    const gridDomain = { x: [ 0, 250], y: [ 0, 250] };
+    const svgDomain = { x: [0, w], y: [w, 0] };
+    const gridDomain = { x: [0, 250], y: [0, 250] };
     const grid2svg = {
         x: d3.scaleLinear(gridDomain.x, svgDomain.x),
         y: d3.scaleLinear(gridDomain.y, svgDomain.y)
     };
 
-    const transform = ({type, value, coordinates}) => ({
+    const transform = ({ type, value, coordinates }) => ({
         type,
         value,
         coordinates: coordinates.map(rings =>
             rings.map(points => points.map(([i, j]) => [grid2svg.x(j), grid2svg.y(i)]))
         )
     });
-    
+
+    const cx = w / 2;
+    const cy = h / 2;
+
+    // Throttle utility function
+    function throttle(fn, delay) {
+        let lastCall = 0;
+        let scheduled = null;
+        return function (...args) {
+            const now = Date.now();
+            if (now - lastCall >= delay) {
+                lastCall = now;
+                fn.apply(this, args);
+            } else if (!scheduled) {
+                scheduled = setTimeout(() => {
+                    lastCall = Date.now();
+                    scheduled = null;
+                    fn.apply(this, args);
+                }, delay - (now - lastCall));
+            }
+        };
+    }
+
+    // Throttled version of runGradientDescent for dragging
+    const throttledRunGradientDescent = throttle(runGradientDescent, 16); // ~60fps
+
     svg.append("circle")
         .attr("id", "draggable-point")
         .attr("r", 7)
@@ -134,10 +162,10 @@ document.addEventListener("DOMContentLoaded", function() {
         .attr("stroke-opacity", 0.5)
         .attr("stroke-width", 2)
         .attr("clip-path", "url(#bounding-box-clip)")
-        .attr("cx", w / 2)
-        .attr("cy", h / 2)
+        .attr("cx", cx)
+        .attr("cy", cy)
         .style("cursor", "move")
-        .call(d3.drag().on("drag", function(event) {
+        .call(d3.drag().on("drag", function (event) {
             const px = window.UTILS.clamp(svgDomain.x, event.x);
             const py = window.UTILS.clamp(svgDomain.x, event.y);
             window.GLOBAL_STATE.point.x = window.GLOBAL_STATE.function2svg.x.invert(px);
@@ -145,7 +173,7 @@ document.addEventListener("DOMContentLoaded", function() {
             d3.select(this)
                 .attr("cx", px)
                 .attr("cy", py);
-            runGradientDescent();
+            throttledRunGradientDescent();
         }));
 
     function syncContours() {
@@ -192,23 +220,32 @@ document.addEventListener("DOMContentLoaded", function() {
     let trajectory = null;
     let truncated = null;
     let converged = null;
-    
+
     function runGradientDescent() {
         let [px, py] = [window.GLOBAL_STATE.point.x, window.GLOBAL_STATE.point.y];
         const tol = 1e-6;
 
-        trajectory = [ { x: px, y: py } ];
+        const schedule = window.GLOBAL_STATE.lrSchedule;
+        const f = window.GLOBAL_STATE.f;
+        const function2svg = window.GLOBAL_STATE.function2svg;
+        const domain = functions[dropdown.value].domain;
+        const grad = window.GLOBAL_STATE.fGrad || ((x, y) => window.UTILS.finite_differences(x, y, f));
+
+        const xMax = Math.abs(function2svg.x.invert(1e6));
+        const yMax = Math.abs(function2svg.y.invert(1e6));
+
+        trajectory = [{ x: px, y: py }];
         truncated = false;
         converged = false;
 
-        for (const lr of window.GLOBAL_STATE.lrSchedule) {
-            const [gx, gy] = window.UTILS.finite_differences(px, py, window.GLOBAL_STATE.f);
-            if (math.sqrt(gx*gx + gy*gy) < tol) {
+        for (const lr of schedule) {
+            const [gx, gy] = grad(px, py);
+            if (math.sqrt(gx * gx + gy * gy) < tol) {
                 if (
-                    functions[dropdown.value].domain.x[0] <= px &&
-                    px <= functions[dropdown.value].domain.x[1] &&
-                    functions[dropdown.value].domain.y[0] <= py &&
-                    py <= functions[dropdown.value].domain.y[1]
+                    domain.x[0] <= px &&
+                    px <= domain.x[1] &&
+                    domain.y[0] <= py &&
+                    py <= domain.y[1]
                 ) {
                     converged = true;
                 } else {
@@ -216,34 +253,24 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
                 break;
             }
-            
-            let [ux, uy] = [lr*gx, lr*gy];
-            let count = 10;
-            while (true) {
-                if (count < 1) break;
-                if (isFinite(px - ux) && isFinite(py - uy)) break;
-                truncated = true;
-                ux /= 2;
-                uy /= 2;
-                count -= 1;
-            }
-            px -= ux;
-            py -= uy;
 
-            if (count > 0) trajectory.push({ x: px, y: py });
+            px -= lr * gx;
+            py -= lr * gy;
+            if (Math.abs(px) > xMax || Math.abs(py) > yMax) {
+                truncated = true;
+                break;
+            }
+
+            trajectory.push({ x: px, y: py });
             if (truncated) break;
         }
 
         drawTrajectory();
     }
 
-    window.addEventListener("lrScheduleChanged", runGradientDescent);
-    dropdown.addEventListener("change", syncContours);
-
     function drawTrajectory() {
         svg.selectAll(".gd-path").remove();
         svg.selectAll(".gd-end-marker").remove();
-        svg.selectAll(".gd-status-label").remove();
 
         svg.insert("path", "#draggable-point")
             .datum(trajectory)
@@ -256,6 +283,16 @@ document.addEventListener("DOMContentLoaded", function() {
                 .x(d => window.GLOBAL_STATE.function2svg.x(d.x))
                 .y(d => window.GLOBAL_STATE.function2svg.y(d.y))
             );
+
+        svg.selectAll(".gd-point")
+            .data(trajectory)
+            .join("circle")
+            .attr("class", "gd-point")
+            .attr("r", 2)
+            .attr("fill", "#36afff")
+            .attr("clip-path", "url(#bounding-box-clip)")
+            .attr("cx", d => window.GLOBAL_STATE.function2svg.x(d.x))
+            .attr("cy", d => window.GLOBAL_STATE.function2svg.y(d.y));
 
         if (truncated) {
             statusValue.textContent = "TRUNCATED";
@@ -292,8 +329,11 @@ document.addEventListener("DOMContentLoaded", function() {
                     .attr("stroke", "#222")
                     .attr("stroke-width", 1);
             }
+            d3.select("#draggable-point").raise();
         }
     }
 
+    window.addEventListener("lrScheduleChanged", throttledRunGradientDescent);
+    dropdown.addEventListener("change", syncContours);
     syncContours();
 });

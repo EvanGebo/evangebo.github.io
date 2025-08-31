@@ -168,15 +168,6 @@ document.addEventListener("DOMContentLoaded", function() {
     //     })
     //     .remove();
 
-    redrawLearningRateGraph();
     window.addEventListener("lrScheduleChanged", redrawLearningRateGraph);
-
-    // // Label
-    // svg.append("text")
-    //     .attr("x", width / 2)
-    //     .attr("y", margin.top)
-    //     .attr("text-anchor", "middle")
-    //     .attr("font-size", 14)
-    //     .attr("fill", "#222")
-    //     .text("Learning Rate Schedule");
+    window.dispatchEvent(new Event("lrScheduleChanged"));
 });

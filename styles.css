@@ -2,6 +2,31 @@
 .quarto-float-caption {
   text-align: center;
 }
+
+select, select option {
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  background: inherit;
+}
+
+select, select option {
+  background-color: var(--bs-body-bg, #fff);
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* For Firefox, which uses a different pseudo-element for dropdowns */
+select:-moz-focusring, select option {
+  background-color: var(--bs-body-bg, #fff);
+}
+
+/* For Webkit browsers (Chrome, Safari) */
+select:focus, select option:checked {
+  background-color: var(--bs-body-bg, #fff);
+}
+
 /* .div-learning-rate .fig-learning-rate .figure .quarto-float-fig .quarto-float {
   overflow: visible;
 } */
