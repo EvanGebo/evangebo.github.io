@@ -1,0 +1,50 @@
+---
+title: "REINFORCE"
+author: "Evan Gebo"
+date: "2025-08-23"
+categories: [reinforcement learning, machine learning]
+citation: true
+appendix-cite-as: bibtex
+navbar: true
+image: "image.jpg"
+---
+
+::: {.hidden}
+$$
+\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\argmin}{argmin}
+\newcommand{\g}{\mathbf g}
+\newcommand{\t}{\boldsymbol\theta}
+\newcommand{\E}[2][]{\operatorname*{\mathbb{E}}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\cov}[2][]{\operatorname*{cov}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\enlarge}{\vphantom{\sum}}
+\newcommand{\SS}{\mathcal S}
+\newcommand{\R}{\mathbb R}
+$$
+
+```{=html}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
+```
+:::
+
+# Issues with REINFORCE
+
+Policy gradient algorithms use the gradient of the objective function $\g = \nabla J(\t)$. The REINFORCE algorithm uses the identity
+$$
+\g = \E[\tau \sim \pi_\t]{ \sum_{t=0}^T \big( R_t(\tau) - b(s_t) \big) \nabla \log \pi_\t(a_t \mid s_t) }
+$$
+to estimate a gradient $\tilde{\g} \approx \g$ using a Monte Carlo rollout of a trajectory $\tau \sim \pi_\t$.
+
+Following the analysis in [@Seita_2017], we can approximate the variance of a REINFORCE update as
+$$
+\begin{align*}
+\cov[\tau \sim \pi_\t]{\tilde{\g}} &= \cov[\tau \sim \pi_\t]{ \sum_{t=0}^T \big( R_t(\tau) - b(s_t) \big) \nabla \log \pi_\t(a_t \mid s_t) } \\
+&\approx \sum_{t=0}^T \E[\tau \sim \pi_\t]{ \frac{\big( \nabla \pi_\t(a_t \mid s_t) \big)^\top \big( \nabla \pi_\t(a_t \mid s_t) \big)}{\pi(a_t \mid s_t)^2} } \E[\tau \sim \pi_\t]{ \enlarge \big( R_t(\tau) - b(s_t) \big)^2 }.
+\end{align*}
+$$
+While choosing a good baseline $b: \SS \to \R$ minimizes the second term (and this how how REINFORCE with advantage is derived), we can't do anything about the former. It's clear that if our policy has any actions with low probability, then this variance can be very large.
+
+To fix this, our only approach is to take more samples. However, this is very sample inneficient as it requires (possible expensive) trajectory rollouts.
+
+This raises the question of how can we reduce the estimator variance while still being sample efficient?
