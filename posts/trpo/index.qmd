@@ -7,42 +7,58 @@ citation: true
 appendix-cite-as: bibtex
 navbar: true
 image: "image.jpg"
-draft: true
 ---
+
+<!-- 
+\newcommand{\defeq}{\mathrel{\raise-0.4ex\hbox{$\mathop{=}\limits^{\text{def}}$}}}
+\newcommand{\defeq}{\mathrel{\mathop{=}\limits^{\raise-10.5ex\hbox{\scriptsize def}}}}
+ -->
 
 ::: {.hidden}
 $$
-\DeclareMathOperator*{\E}{\mathbb{E}}
-\newcommand{\KL}{D_\text{KL}}
 \DeclareMathOperator*{\argmax}{argmax}
 \DeclareMathOperator*{\argmin}{argmin}
 \newcommand{\old}{_\text{old}}
 \newcommand{\L}{\mathcal{L}}
-\newcommand{\A}{\mathcal{A}}
-\newcommand{\S}{\mathcal{S}}
+\newcommand{\SS}{\mathcal S}
+\newcommand{\AA}{\mathcal A}
+\newcommand{\NN}{\mathcal N}
 \newcommand{\N}{\mathbb{N}}
 \newcommand{\R}{\mathbb{R}}
+\newcommand{\W}{\mathbf W}
+\newcommand{\b}{\mathbf b}
 \newcommand{\t}{\boldsymbol\theta}
+
+\newcommand{\KL}{D_\text{KL}}
+\newcommand{\enlarge}{\vphantom{\sum}}
+\newcommand{\bar}{\;\middle|\;}
+\newcommand{\defeq}{\mathrel{\mathop{=}\limits^{\text{def}}}}
+\newcommand{\E}[2][\pi]{\operatorname*{\mathbb{E}}_{\substack{#1}}\!\left[ #2 \right]}
+
+\newcommand{\V}[1][\pi]{V^{#1}}
+\newcommand{\Q}[1][\pi]{Q^{#1}}
+\newcommand{\A}[1][\pi]{A^{#1}}
+\newcommand{\transition}{s', r \sim p(\cdot, \cdot \mid s, a)}
+\newcommand{\start}{s_0 \sim \rho_0}
 $$
 
 ```{=html}
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
-<script src="utils.js"></script>
 ```
 :::
 
 | Notation                       | Definition                     |
 |:------------------------------:|:-------------------------------|
 | $\pi \in \Pi$                  | Policy in policy space         |
-| $s \in \S$                     | State in state space           |
-| $a \in \A$                     | Action in action space         |
-| $\tau \sim \pi$                | Trajectory sampled from policy |
+| $s \in \SS$                     | State in state space           |
+| $a \in \AA$                     | Action in action space         |
 | $a \sim \pi(\cdot \mid s)$     | Action sampled from policy     |
-| $V^\pi: \S \to \R$             | Value function                 |
-| $Q^\pi: \S \times \A \to \R$   | Action-value function          |
-| $A^\pi: \S \times \A \to \R$   | Advantage function             |
-| $\rho_\pi: \S \to \R_{\geq 0}$ | State distribution             |
+| $\V: \SS \to \R$             | Value function                 |
+| $\Q: \SS \times \AA \to \R$   | Action-value function          |
+| $\A: \SS \times \AA \to \R$   | Advantage function             |
+| $s \sim \rho_0$                | State sampled from the initial state distribution $\rho_0$ |
+| $s \sim \rho_\pi$              | State sampled from $\pi$'s state distribution $\rho_\pi$ |
 | $J: \Pi \to \R$                | Expected reward                |
 | $\L: \Pi \to \R$               | Performance difference         |
 
@@ -50,17 +66,27 @@ $$
 
 # Introduction {#sec-introduction}
 
-Consider the standard infinite-horizon[^1] Markov decision process setup with states $s \in \S$, actions $a \in \A$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition distribution $p(s', r \mid s, a)$, and initial state distribution $\rho_0(s)$. The policy that the agent follows is then a distribution $\pi(a \mid s)$. Remember that the value function $V^\pi$ and the action-value function $Q^\pi$ are defined as
+Consider the standard infinite-horizon[^1] Markov decision process setup with states $s \in \SS$, actions $a \in \AA$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition distribution $p(s', r \mid s, a)$[^transition], and initial state distribution $\rho_0(s)$. The policy that the agent follows is then a distribution $\pi(a \mid s)$. Remember that the value function $\V$ and the action-value function $\Q$ are defined as
 $$
 \begin{align*}
-V^\pi(s) &= \E_{\tau \sim \pi}\left[ \sum_{t=0}^\infty \gamma^t r_t \;\middle|\; s_0 = s \right] \\
-Q^\pi(s, a) &= \E_{\tau \sim \pi}\left[ \sum_{t=0}^\infty \gamma^t r_t \;\middle|\; s_0 = s, a_0 = 0 \right],
+\V(s) &\defeq \E{ \sum_{t=0}^\infty \gamma^t r_t \bar s_0 = s } \\
+\Q(s, a) &\defeq \E{ \sum_{t=0}^\infty \gamma^t r_t \bar s_0 = s, a_0 = a },
 \end{align*}
 $$
-where $\E_{\tau \sim \pi}$ is a shorthand for an expectation over $s_0 \sim \rho_0$, $a_t \sim \pi(\cdot \mid a_t)$, and $s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)$ for $t \in \N$.
+where $\mathbb{E}_\pi$ is a shorthand for an expectation over $s_0 \sim \rho_0$, $a_t \sim \pi(\cdot \mid a_t)$, and $s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)$ for $t \in \N_{\geq 1}$.
 
+To measure the performance of a policy $\pi$, we use the expected discounted cumulative reward
+$$
+J(\pi) \defeq \E[s_0 \sim \rho_0]{ \V(s_0) }.
+$$
+To find the optimal policy, we first consider the policy space paramterized by some vector $\t \in \R^d$. For example, a common policy space is to use $\pi_\t(a \mid s) = \NN(a \mid \boldsymbol\mu_\t(s), \mathbf\Sigma_\t(s))$ where $\boldsymbol\mu_\t$ and $\mathbf\Sigma_\t$ are two neural networks parameterized by $\t$. Now we can formalize our problem as
+$$
+\t^* = \argmax_{\t \in \R^d}\; J(\pi_\t).
+$$
 
 [^1]: The proofs for the finite-horizon case are very similar, except with a few additional terms to deal with truncating the trajectories.
+
+[^transition]: Some sources seperate the reward from the state distribution, e.g. $s_{t+1} \sim p(\cdot \mid s_t, a_t)$ and $r_t = r(s_t, a_t, s_{t+1})$ or $r_t = r(s_t, a_t)$. However, these definitions are all equivilent.
 
 # How can we sample more efficiently? {#sec-sample-efficiency}
 
@@ -68,19 +94,15 @@ Many reinforcement learning algorithms are **on-policy**, meaning that to improv
 
 Let's consider a hybrid approach, where we sample from the previous policy (denoted $\pi\old$) to update the new policy (denoted $\pi$).
 
-Normally, we optimize $\E_{\tau \sim \pi}\left[V^\pi(s_0)\right]$. However, to use information from $\pi\old$ we can equivilently optimize $\E_{\tau \sim \pi}\left[V^\pi(s_0)\right] - \E_{\pi\old}\left[V^{\pi\old}(s_0)\right]$. In essence, this is the relative improvement instead of simply the global optimum. It's easy to see that the optimal policy will optimize both equations. However, this expression still includes an expectation over $\pi$, which is inneficient for sampling. This raises the question of can we write this expression in terms of exclusively $\pi\old$?
+Normally, we optimize $\E{\V(s_0)}$. However, to use information from $\pi\old$ we can equivilently optimize $\E{\V(s_0)} - \E[\pi\old]{\V[\pi\old](s_0)}$. In essence, this is the relative improvement instead of simply the global optimum. It's easy to see that the optimal policy will optimize both equations. However, this expression still includes an expectation over $\pi$, which is inneficient for sampling. This raises the question of can we write this expression in terms of exclusively $\pi\old$?
 
 ## Deriving Surrogate Advantage {#sec-surrogate-advantage}
 
-In reinforcement learning, we seek to find the policy that optimizes the expected returns $J(\pi) = \E_{\tau \sim \pi}\left[ V^\pi(s_0) \right]$:
-$$
-\pi^* = \argmax_{\pi \in \Pi} J(\pi).
-$$
-In policy gradient algorithms more specifically, we optimize $\pi$ using $\nabla J(\pi)$. For example, the REINFORCE algorithm uses the update step[^policy-gradient]
+In policy gradient algorithms, we optimize $\pi_\t$ using $\nabla_\t J(\pi_\t)$. For example, the REINFORCE algorithm uses the update step[^policy-gradient]
 $$
 \begin{align*}
-\t^{(k + 1)} &\gets \t^{(k)} - \alpha\left.\nabla_\t J(\pi_{\t})\right|_{\t = \t^{(k)}} \\
-&\gets \t^{(k)} - \alpha \E_{\tau \sim \pi} \left[ \sum_{t=0}^\infty \left( \sum_{t'=t}^\infty \gamma^{t'}r_t \right) \left.\nabla_\t \log \pi_{\t}(a_t \mid s_t)\right|_{\t = \t^{(k)}} \right].
+\t^{(k + 1)} &\gets \t^{(k)} - \alpha\left[\nabla_\t J(\pi_{\t})\right]_{\t = \t^{(k)}} \\
+&\gets \t^{(k)} - \alpha \E{ \sum_{t=0}^\infty \left( \sum_{t'=t}^\infty \gamma^{t'}r_t \right) \left[\nabla_\t \log \pi_{\t}(a_t \mid s_t)\right]_{\t = \t^{(k)}} }.
 \end{align*}
 $$
 However, tuning the step size $\alpha$ can be very difficult, since if out Monte Carlo estimate of the gradient is incorrect, then we can move a long distance in the wrong direction. One way to remedy this is to use a different optimization method. Gradient descent is what's called a line search method, while trust region methods are an alternative paradigm that take smaller, well verified steps.
@@ -89,7 +111,7 @@ Trust region policy optimization (TRPO) uses the update step
 $$
 \begin{align*}
 \t^{(k + 1)} \gets \argmax_{\t^{(k + 1)} \in \R^d}\; & \L_{\pi_{\t^{(k)}}}(\pi_{\t^{(k + 1)}}) \\
-\text{s.t. } & \sqrt{\E_{s \sim \rho_\pi}\bigg[ \KL\big(\pi_{\t^{(k+1)}}(\cdot \mid s) \;\big\|\; \pi_{\t^{(k)}}(\cdot \mid s)\big) \bigg]} \leq \delta
+\text{s.t. } & \sqrt{\E[s \sim \rho_\pi]{ \enlarge \KL\big(\pi_{\t^{(k+1)}}(\cdot \mid s) \;\big\|\; \pi_{\t^{(k)}}(\cdot \mid s)\big) }} \leq \delta
 \end{align*}
 $$
 Ignoring the notation and technical details, due to something called the monotone convergence theorem (see @Schulman_2017 for a full proof), this update step always obeys $J(\pi_{\t^{(k + 1)}}) \geq J(\pi_{\t^{(k)}})$.
@@ -98,71 +120,67 @@ Ignoring the notation and technical details, due to something called the monoton
 
 ### **Step 1:** Expected returns $J(\pi)$ vs. the performance difference $\mathcal{L}(\pi)$
 
-In reinforcement learning, we seek to find the policy that optimizes the expected returns $J(\pi) = \E_{\tau \sim \pi}\left[ V^\pi(s_0) \right]$:
-$$
-\pi^* = \argmax_{\pi \in \Pi} J(\pi).
-$$
 However, this can be difficult to do using standard methods due to [TODO]. So instead, consider an iterative update based on a prior policy $\pi\old$, and consider the performance difference
 $$
-\L(\pi) = J(\pi) - J(\pi\old) = \E_{\tau \sim \pi}\left[V^\pi(s_0)\right] - \E_{\tau \sim \pi\old}\left[V^{\pi\old}(s_0)\right].
+\L(\pi) \defeq J(\pi) - J(\pi\old) = \E[\start]{\V(s_0)} - \E[\start]{\V[\pi\old](s_0)}.
 $$
 Note that since $\pi\old$ is independent of $\pi$, optimizing $J(\pi)$ is equivilent to optimizing $\L(\pi)$. This hasn't gained us anything mathematically, however expressing the objective in this form lets us more easily express everything in terms of $\pi\old$.
 
 ### **Step 2:** The Performance Difference Lemma
 
-Recall that the advantage function is defined in terms of the value function $V^\pi$ and the action-value function $Q^\pi$ as
+Recall that the advantage function is defined in terms of the value function $\V$ and the action-value function $\Q$ as
 $$
-A^\pi(s, a) = Q^\pi(s, a) - V^\pi(s).
+\A(s, a) \defeq \Q(s, a) - \V(s).
 $$
 
-A natural question to ask is whether we can express a reward $r$ in terms of the value function $V^\pi$ of some policy $\pi$. Using linearity of expectation we can do this by introducing a factor of the advantage function $A^\pi$:
+A natural question to ask is whether we can express a reward $r$ in terms of the value function $\V$ of some policy $\pi$. Using linearity of expectation and the Bellman equations we can do this by introducing a factor of the advantage function $\A$:
 $$
 \begin{align*}
-\E_{s',r \sim  p(\cdot,\cdot\mid s,a)}\left[ r \right] &= \E_{s',r \sim  p(\cdot,\cdot\mid s,a)}\left[ r + \gamma V^\pi(s') - \gamma V^\pi(s') \right] \\
-&= \underbrace{\E_{s',r \sim  p(\cdot,\cdot\mid s,a)}\left[ r + \gamma V^{\pi}(s') \right]}_{Q^\pi(s,a)} - \gamma \E_{s',r \sim  p(\cdot,\cdot\mid s,a)}\left[ V^\pi(s') \right] \\
-&= A^\pi(s,a) + V^\pi(s) - \gamma\E_{s',r\sim p(\cdot,\cdot\mid s,a)}\left[ V^\pi(s') \right].
+\E[\transition]{ r } &= \E[\transition]{ r + \gamma \V(s') - \gamma \V(s') } \\
+&= \underbrace{\E[\transition]{ r + \gamma \V(s') }}_{\Q(s,a)} - \gamma \E[\transition]{ \V(s') } \\
+&= \A(s,a) + \V(s) - \gamma\E[\transition]{ \V(s') }.
 \end{align*}
 $$
 Substituting this identity into the value function yields
 $$
 \begin{align*}
-\E_{\tau \sim \pi}\left[ V^{\pi}(s_0) \right] &= \E_{\tau \sim \pi}\left[ \sum_{t = 0}^{\infty} \gamma^tr_t \right] \\
-&= \E_{\tau \sim \pi} \left[ \sum_{t = 0}^{\infty} \gamma^tA^{\pi\old}(s_t,a_t) + \gamma^tV^{\pi\old}(s_t) - \gamma^{t+1}\E_{s_{t+1}\sim p(\cdot|s_t,a_t)}\left[ V^{\pi\old}(s_{t+1}) \right] \right] \\
-&= \E_{\tau \sim \pi}\left[ \sum_{t = 0}^{\infty}\gamma^t A^{\pi\old}(s_t,a_t) + \sum_{t = 0}^{\infty} \gamma^tV^{\pi\old}(s_t) - \sum_{t = 1}^{\infty} \gamma^tV^{\pi\old}(s_t)  \right] \\
-&= \E_{\tau \sim \pi}\left[ V^{\pi\old}(s_0) \right] + \E_{\tau \sim \pi}\left[ \sum_{t = 0}^{\infty} \gamma^tA^{\pi\old}(s_t,a_t) \right].
+\E[\start]{ \V(s_0) } &= \E{ \sum_{t = 0}^{\infty} \gamma^tr_t } \\
+&= \E{ \sum_{t = 0}^{\infty}\gamma^t\A[\pi\old](s_t,a_t) + \gamma^t\V[\pi\old](s_t) - \gamma^{t+1}\E[s_{t+1}\sim p(\cdot|s_t,a_t)]{ \V[\pi\old](s_{t+1}) } } \\
+&= \E{ \sum_{t = 0}^{\infty}\gamma^t \A[\pi\old](s_t,a_t) + \sum_{t = 0}^{\infty} \gamma^t\V[\pi\old](s_t) - \sum_{t = 1}^{\infty} \gamma^t\V[\pi\old](s_t)  } \\
+&= \E[\start]{ \V[\pi\old](s_0) } + \E[\start]{ \sum_{t = 0}^{\infty} \gamma^t\A[\pi\old](s_t,a_t) }.
 \end{align*}
 $$
-Since $\pi$ and $\pi\old$ both share the same initial state distribution $\rho_0$, we see that $\E_{\tau \sim \pi}\left[ V^{\pi\old}(s_0) \right] = \E_{\pi\old}\left[ V^{\pi\old}(s_0) \right]$. Then rearranging terms shows that
+Rearranging terms shows that
 $$
-\L(\pi) = \E_{\tau \sim \pi}\left[ \sum_{t = 0}^{\infty} \gamma^tA^{\pi\old}(s_t,a_t) \right].
+\L(\pi) = \E{ \sum_{t=0}^\infty \gamma^t\A[\pi\old](s_t,a_t) }.
 $$
 This is an interesting result since it allows us to access the performance of $\pi\old$ in terms of $\pi$! However, it doesn't help with sampling efficiently from $\pi\old$ yet.
 
 ### **Step 3:** Rewriting using the state distribution
 
-An easy answer would just be to sample $\tau \sim \pi\old$ instead of $\pi \sim \tau$. However, there's no guarantee on how good of an approximation this would be! However, there is a way forward if we use the state distribution $\rho_\pi$ instead. Remember that the state distribution is defined as
+An easy answer would just be to sample $\pi\old$ instead of $\pi$. However, there's no guarantee on how good of an approximation this would be! However, there is a way forward if we use the state distribution $\rho_\pi$ instead. Remember that the state distribution is defined as
 $$
-\rho_\pi(s) = (1 - \gamma) \sum_{t=0}^\infty \gamma^t \Pr(s_t = s \mid s_0 \sim \rho_0, \pi).
+\rho_\pi(s) \defeq (1 - \gamma) \sum_{t=0}^\infty \gamma^t \Pr(s_t = s \mid s_0 \sim \rho_0, \pi).
 $$
 Using this distribution, we can rewrite the performance difference[^3] as
 $$
-\L(\pi) = \E_{\substack{s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)}}\left[ A^{\pi\old}(s, a) \right].
+\L(\pi) = \E[s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)]{ \A[\pi\old](s, a) }.
 $$
 
-[^3]: If it's not clear why this is possible, there are only two operations happening here: we introduce and distribute the fraction $\frac{1 - \gamma}{1 - \gamma}$, and we move the policy from the expectation to the probability term in $\rho_\pi$.
+[^3]: If it's not clear why this is possible, there are only two operations happening here: we introduce and distribute the fraction $\frac{1 - \gamma}{1 - \gamma}$, and we move the policy from the expectation to the probability term in $\rho_\pi$. The logic is similar to that of the policy gradient theorem proof presented in [@Seita_2017].
 
 ### **Step 4:** Sampling from $\pi(\cdot \mid s)$ using $\pi_\text{old}(\cdot \mid s)$
 
 Importantly, $\pi(\cdot \mid s)$ has a closed-form, e.g. a neural network. We can use this to implement importance sampling to sample from $\pi\old(\cdot \mid s)$ instead:
 $$
-\L(\pi) = \E_{\substack{s \sim \rho_\pi \\ a \sim \pi\old(\cdot \mid s)}} \left[ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} A^{\pi\old}(s,a) \right].
+\L(\pi) = \E[s \sim \rho_\pi \\ a \sim \pi\old(\cdot \mid s)]{ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} \A[\pi\old](s,a) }.
 $$
 
 ### **Step 5:** Sampling from $\rho_\pi$ using $\rho_{\pi_\text{old}}$
 
 Unfortanantly, $\rho_\pi$ has no closed-form solution, so we can't use importance sampling since this requires being able to calculate (or at least accurately estimate) the probability ratio. This is where the main jump of the surrogate objective function is: what if we just approximate $\rho_\pi$ with $\rho_{\pi\old}$? This gives rise to the surrogate avantage function
 $$
-\L_{\pi\old}(\pi) = \E_{\substack{s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)}} \left[ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} A^{\pi\old}(s,a) \right]
+\L_{\pi\old}(\pi) \defeq \E[s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)]{ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} \A[\pi\old](s,a) }
 $$
 as an approximation for the performance difference $\L(\pi)$. The hope is that if the approximation $\rho_\pi \approx \rho_{\pi\old}$ is good, then the approximation $\L(\pi) \approx \L_{\pi\old}(\pi)$ will also be good.
 
@@ -172,17 +190,29 @@ In trust region optimization algorithms (see @Nocedal_Wright_2006 chapter 4 for 
 
 We know that
 $$
-\argmax_{\pi \in \Pi} \E_{\tau \sim \pi}\left[ V^\pi(s_0) \right] = \argmax_{\pi \in \Pi} \underbrace{\E_{\tau \sim \pi}\left[ V^\pi(s_0) \right] - \E_{\pi\old}\left[ V^{\pi\old}(s_0) \right]}_{\L(\pi)},
+\argmax_{\pi \in \Pi}\; \E{ \V(s_0) } = \argmax_{\pi \in \Pi}\; \underbrace{\E{ \V(s_0) } - \E[\pi\old]{ \V[\pi\old](s_0) }}_{\L(\pi)},
 $$
 which raises the question of how close $\L_{\pi\old}(\pi)$ is to $\L(\pi)$. Luckily for us, @Schulman_2017 derives a monotonic improvement guarantee which states that so long as 
 $$
-\E_{s \sim \rho_{\pi\old}}\bigg[ \KL\big(\pi(\cdot \mid s) \;\|\; \pi\old(\cdot \mid s)\big) \bigg] \leq \delta
+\E[s \sim \rho_{\pi\old}]{ \enlarge \KL\big(\pi(\cdot \mid s) \;\|\; \pi\old(\cdot \mid s)\big) } \leq \delta
 $$
 a trust region optimization step will always improve our policy[^2]. While there is an expression for $\delta$, it's difficult to calculate empirically, so it's generally tuned as a hyperparameter.
 
+::: {.callout-note}
+## Monotone Improvement Theorem
+The update step
+$$
+\begin{align*}
+\t^{(k + 1)} \gets \argmax_{\t^{(k + 1)} \in \R^d}\; & \L_{\pi_{\t^{(k)}}}(\pi_{\t^{(k + 1)}}) \\
+\text{s.t. } & \sqrt{\E[s \sim \rho_\pi]{ \enlarge \KL\big(\pi_{\t^{(k+1)}}(\cdot \mid s) \;\big\|\; \pi_{\t^{(k)}}(\cdot \mid s)\big) }} \leq \delta,
+\end{align*}
+$$
+will always improve the expectend cumulative discounted rewards, i.e. $J(\pi_{\t^{(k+1)}}) \geq J(\pi_{\t^{(k)}})$. See [@Schulman_2017] for a proof of the theorem.
+:::
+
 [^2]: The math here is quite a bit more technical, so I've skipped over it here. Long story short, they define a notion of "coupled" policies $\pi$ and $\pi'$ that are identical with high probability, and then use their limited disagreements to bound the error.
 
-# Principle Policy Optimization
+<!-- # Principle Policy Optimization
 
 ::: {#fig-learning-rate}
 ::: {#div-learning-rate .column-body-outset}
@@ -207,4 +237,4 @@ The gradient descent animation.
 :::
 
 # Other stuff
-text
+text -->
