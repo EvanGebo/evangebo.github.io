@@ -1,0 +1,392 @@
+---
+title: "Soft Reinforcement Learning"
+author: "Evan Gebo"
+date: "2025-08-23"
+categories: [reinforcement learning, machine learning]
+navbar: true
+number-sections: true
+---
+
+::: {.hidden}
+$$
+\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\argmin}{argmin}
+
+\newcommand{\focus}[1]{\textcolor{WildStrawberry}{ #1 }}
+
+\newcommand{\defeq}{\mathrel{\mathop{=}\limits^{\smash{\lower0.8ex\hbox{\scriptsize def}}}}}
+\newcommand{\cov}[2][]{\operatorname*{cov}_{ \substack{{#1}} }\!\left[ #2 \right]}
+\newcommand{\var}[2][]{\operatorname*{var}_{ \substack{{#1}} }\!\left[ #2 \right]}
+\newcommand{\E}[2][]{\operatorname*{\mathbb{E}}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\H}[1]{\operatorname*{\mathbb{H}}\!\left[ #1 \right]}
+\newcommand{\KL}[2]{D_\text{KL}\left( #1 \;\middle\|\; #2 \right)}
+
+\newcommand{\Ppair}[1]{\Big( #1 \Big)}
+
+\newcommand{\t}{\boldsymbol\theta}
+\newcommand{\p}{\boldsymbol\phi}
+\newcommand{\m}{\boldsymbol\mu}
+
+\newcommand{\N}{\mathbb N}
+\newcommand{\R}{\mathbb R}
+
+\newcommand{\LL}{\mathcal L}
+\newcommand{\SS}{\mathcal S}
+\newcommand{\AA}{\mathcal A}
+\newcommand{\NN}{\mathcal N}
+\newcommand{\RR}{\mathcal R}
+\newcommand{\TT}{\mathcal T}
+\newcommand{\DD}{\mathcal D}
+
+\newcommand{\V}[2][\pi]{\widetilde{V}^{#1}(#2)}
+\newcommand{\Q}[3][\pi]{\widetilde{Q}^{#1}(#2, #3)}
+\newcommand{\A}[3][\pi]{\widetilde{A}^{#1}(#2, #3)}
+\newcommand{\Z}[2][\pi]{\widetilde{Z}^{#1}(#2)}
+\newcommand{\J}[1]{\widetilde{J}(#1)}
+
+\newcommand{\transition}{s', r \sim p(\cdot, \cdot \mid s, a)}
+\newcommand{\start}{s_0 \sim \rho_0}
+\newcommand{\action}[1][\pi]{a \sim #1(\cdot \mid s)}
+\newcommand{\new}{_\text{new}}
+\newcommand{\old}{_\text{old}}
+\newcommand{\opt}{^*}
+$$
+
+```{=html}
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
+<script src="utils.js"></script>
+```
+:::
+
+| Notation                     | Definition                                  |
+|:----------------------------:|:--------------------------------------------|
+| $\pi \in \Pi$                | Policy $\pi$ in policy space $\Pi$          |
+| $a \in \AA$                  | Action $a$ in action space $\AA$            |
+| $s \in \SS$                  | State $s$ in state space $\SS$              |
+| $r \in \RR$                  | Reward $r$ in reward space $\RR$            |
+| $\Delta(\AA)$                | Probability distributions over $\AA$        |
+| $\Delta(\AA)^\SS$            | Probability distributions over $\AA$ conditioned on $\SS$ |
+| $V^\pi(s)$                   | Hard value function for policy $\pi$        |
+| $\V{s}$                      | Soft value function for policy $\pi$        |
+| $Q^\pi(s, a)$                | Hard action-value function for policy $\pi$ |
+| $\Q{s}{a}$                   | Soft action-value function for policy $\pi$ |
+| $J(\pi)$                     | Hard expected discounted reward objective   |
+| $\J{\pi}$                    | Soft expected discounted reward objective   |
+: Common notation. {#tbl-notation}
+
+In classic reinforcement learning we learn a deterministic policy. This is theoretically optimal, but it doesn't always work well in practice. For one, our environment often isn't exactly a Markov Decision Process, meaning the Markov assumption may not hold in practice. Additionally, the higher exploration of stochastic policies can make training faster, and also be more robust in unknown environments. So how can we modify the "hard" reinforcement learning problem of learning an optimal deterministic policy to the "soft" reinforcement learning problem of learnin an optimal stochastic policy?
+
+# Stochastic Policies and Entropy {#sec-entropy}
+
+If we want our policies to be more random, we need a quantifiable way to measure the "randomness" of a policy. A common method is the [entropy](https://en.wikipedia.org/wiki/Differential_entropy) $\mathbb{H}$, defined as
+
+$$
+\H{\pi(\cdot \mid s)} \defeq -\int_\AA \pi(a \mid s)\log \pi(a \mid s)\;\mathrm{d}a = -\E[\action]{\log \pi(a \mid s)}.
+$$
+
+In essence, it measures how "surprising" a policy is. Under this interpretation, the least surprising policy (assuming a finite action space $\AA$) is the deterministic policy
+
+$$
+\pi_\text{deterministic}(a \mid s) = \begin{cases}
+1 & \text{if }a = a' \\
+0 & \text{if }a \neq a'
+\end{cases}
+$$
+
+for some $a' \in \AA$, since we always know what action it's going to take. This intuition is supported by the formula, since
+
+$$
+\begin{align*}
+\H{\pi_\text{deterministic}(\cdot \mid s)} &= -\E[a \sim \pi_\text{deterministic}(\cdot \mid s)]{\log \pi_\text{deterministic}(a \mid s)} \\
+&= -\log \pi_\text{deterministic}(a' \mid s) \\
+&= 0.
+\end{align*}
+$$
+
+Likewise, the most surprising policy is the uniform policy $\pi_\text{uniform}(a \mid s) = \frac{1}{|\AA|}$, since we have no information as to which action is likely to be sampled next (every action is equally likely):
+
+$$
+\begin{align*}
+\H{\pi_\text{uniform}(\cdot \mid s)} &= \E[a \sim \pi_\text{uniform}(\cdot \mid s)]{\log \pi_\text{uniform}(a \mid s)} \\
+&= -|\AA|\left(\frac{1}{|\AA|}\right)\log\left(\frac{1}{|\AA|}\right) \\
+&= \log|\AA|.
+\end{align*}
+$$
+
+::: {.callout-note}
+## Practice Problem
+Using Lagrange multipliers and the technques from @sec-optimal-policies, prove that for finite $\AA$, the uniform policy $\pi_\text{uniform}$ maximizes entropy, i.e.
+$$
+\pi_\text{uniform}(\cdot \mid s) = \argmax_{\pi \in \Delta(\AA)} \; \H{\pi(\cdot \mid s)}.
+$$
+:::
+
+In infinite action spaces $\AA$, both the deterministic and uniform policies have undefined entropy, but we can consider their limit:
+
+$$
+\lim_{|\AA| \to \infty} \H{\pi_\text{uniform}(\cdot \mid s)} = \lim_{|\AA| \to \infty} \log |\AA| = \infty.
+$$
+
+We need a slightly different construction for the deterministic policy, so consider the case where $\AA = \R$ and $a' = 0$. Then we can see that
+
+$$
+\H{\pi_\text{deterministic}(\cdot \mid s)} = \lim_{\varepsilon \to 0} \H{\text{Uniform}[-\varepsilon, \varepsilon]} = \lim_{\varepsilon \to 0} \log (2\varepsilon) = -\infty.
+$$
+
+This matches our intuition from the finite case (except with $0$ being replaced with $-\infty$).
+
+# Expected Discounted Entropy-Regularized Rewards {#sec-objective}
+
+The standard hard objective function is the expected discounted rewards
+
+$$
+J(\pi) \defeq \E[\start]{V^\pi(s)} = \E[\pi]{ \sum_{t=0}^\infty \gamma^t r_t }.
+$$
+
+Using the entropy functional from @sec-entropy, we can modify this to construct the soft objective function, which is the expected discounted entropy-regularized rewards
+
+$$
+\J{\pi} \defeq \E[\pi]{ \sum_{t=0}^\infty \gamma^t(r_t + \alpha\H{\pi(\cdot \mid s_t)}) }.
+$$
+
+While this notation isn't standardized, I'll always use a tilde to denote the soft variants of functions. In the soft setting, we seek to learn the optimal stochastic policy
+
+$$
+\pi^* = \argmax_{\pi \in \Pi} \J{\pi},
+$$
+
+where $\Pi$ is the set of all posible policies.
+
+Similar to the hard setting, we can decompose $\J{\pi}$ into soft value and soft state-value functions $\V{s}$ and $\Q{s}{a}$:
+
+$$
+\begin{align*}
+\V{s} &\defeq \E[\pi]{ \sum_{t=0}^\infty \gamma^t\Ppair{r_t + \alpha\H{\pi(\cdot \mid s_t)}} \;\middle|\; s_0 = s } \\
+\Q{s}{a} &\defeq \E[\pi]{ \sum_{t=0}^\infty \gamma^t\Ppair{r_t + \alpha\H{\pi(\cdot \mid s_t)}} \;\middle|\; s_0 = s, a_0 = a } \\
+\end{align*}
+$$
+
+# Soft Bellman Equations {#sec-soft-bellman-equations}
+
+Similar to the hard setting, in the soft setting we can derive a recursive relationship between the value and action-value functions.
+
+$$
+\begin{align*}
+\V{s} &= \E[\pi]{r_0 + \alpha\H{\pi(\cdot \mid s_0)} + \gamma\sum_{t=0}^\infty \gamma^t\!\big(r_{t+1} + \alpha\H{\pi(\cdot \mid s_{t+1})}\big) \;\middle|\; s_0 = s} \\
+&= \E[a_0 \sim \pi(\cdot \mid s_0) \\ s_1, r_0 \sim p(\cdot, \cdot \mid s_0, a_0)]{r_0 + \alpha\H{\pi(\cdot \mid s_0)} + \gamma\E[\pi]{\sum_{t=0}^\infty \gamma^t\big(r_{t+1} + \alpha\H{\pi(\cdot \mid s_{t+1})}\big)}} \\
+&= \E[\action \\ \transition]{r + \alpha\H{\pi(\cdot \mid s)} + \gamma\V{s'}} \\
+&= \E[\action \\ \transition]{r - \alpha\E[\action]{\log\pi(a \mid s)} + \gamma\V{s'}} \\
+&= \E[\action \\ \transition]{r - \alpha\log\pi(a \mid s) + \gamma\V{s'}}.
+\end{align*}
+$$
+
+For the soft value function, this is identical to the hard value function except with a factor of $-\alpha\log\pi(a \mid s)$. Likewise, for the action-value function we derive
+
+$$
+\begin{align*}
+\Q{s}{a} &= \E[\pi]{ r_0 + \alpha\H{\pi(\cdot \mid s_0)} + \gamma\sum_{t=0}^\infty \gamma^t\!\big(r_{t+1} + \alpha\H{\pi(\cdot \mid s_{t+1})}\big) \;\middle|\; s_0 = s, a_0 = a } \\
+&= \E[\transition]{ r + \gamma\V{s} },
+\end{align*}
+$$
+
+which is equivilent to the hard setting. Combining these identities lets us write the soft value function in terms of the soft action-value function:
+
+$$
+\V{s} = \E[\action \\ \transition]{r - \alpha\log\pi(a \mid s) + \gamma\V{s'}} = \E[\action]{ \Q{s}{a} - \alpha\log\pi(a \mid s) }.
+$$
+
+We can also define the optimal value and action-value functions
+
+$$
+\begin{align*}
+\V[*]{s} &\defeq \sup_{\pi \in \Delta(\AA)^\SS} \V{s'} \\
+\Q[*]{s}{a} &\defeq \sup_{\pi \in \Delta(\AA)^\SS} \Q{s}{a}.
+\end{align*}
+$$
+
+Using the identity from before, the optimal action-value function is often written as
+
+$$
+\begin{align*}
+\Q[*]{s}{a} &= \sup_{\pi \in \Delta(\AA)^\SS} \Q{s}{a} \\
+&= \sup_{\pi \in \Delta(\AA)^\SS} \E[\transition]{r + \gamma\V{s'}} \\
+&= \E[\transition]{r + \gamma\sup_{\pi \in \Delta(\AA)^\SS} \V{s'}} \\
+&= \E[\transition]{r + \gamma\V[*]{s}}.
+\end{align*}
+$$
+
+# Soft Policy Extraction {#sec-sof-policy-evaluation}
+
+Soft policy improvement is an iterative algorithm, so let's start with a policy $\pi\old$ and the corresponding action-value functions $\Q[\pi\old]{s}{a}$. Then the optimal next policy is
+
+$$
+\begin{align*}
+\pi\new(\cdot \mid s) = \argmax_{\pi \in \Delta(\AA)} \;& \E[\action]{\Q[\pi\old]{s}{a} - \alpha\log\pi(a \mid s)} \\
+\text{s.t.} \;& \int_\AA \pi(a \mid s) \;\mathrm{d}a = 1 \\
+& \pi(a \mid s) \geq 0 \text{ for all } a \in \AA.
+\end{align*}
+$$
+
+Introducing a [Lagrange multiplier](https://en.wikipedia.org/wiki/Lagrange_multiplier) $\lambda \in \R$ we construct the Lagrangian
+
+$$
+\LL[\pi(\cdot \mid s)] = \V[\pi\old]{s} + \lambda\left(1 - \int_\AA\pi(a \mid s)\;\mathrm{d}a\right).
+$$
+
+Substiuting in the Bellman equation, and taking the [functional derivative](https://en.wikipedia.org/wiki/Functional_derivative), we see that
+
+$$
+\frac{\partial\LL}{\partial\pi(a \mid s)} = \Q[\pi\old]{s}{a} - \alpha - \alpha\log\pi(a \mid s) - \lambda.
+$$
+
+Setting the derivative equal to zero and solving we have
+
+$$
+\pi(a \mid s) = \exp\left( \frac{\Q[\pi\old]{s}{a} - \alpha - \lambda}{\alpha} \right) = \exp\left( -1 - \frac{\lambda}{\alpha} \right)\exp\left( \frac{1}{\alpha}\Q[\pi\old]{s}{a} \right).
+$$
+
+Clearly this is non-negative, so we can normalize the distribution by using the constraint $\int_\AA\pi(a \mid s)\;\mathrm{d}a = 1$ to show that
+
+$$
+\exp\left( -1 - \frac{\lambda}{\alpha} \right) = \frac{1}{\int_\AA\exp\left( \frac{1}{\alpha}\Q[\pi\old]{s}{a} \right)}.
+$$
+
+We define the denominator as the partition function $\Z[\pi\old]{s} \defeq \int_\AA\pi(a \mid s)\;\mathrm{d}a$. Thus, the optimal policy is
+
+$$
+\pi\new(\cdot \mid s) = \frac{1}{\Z[\pi\old]{s}}\exp\left( \frac{1}{\alpha}\Q[\pi\old]{s}{a} \right),
+$$ {#eq-soft-policy-extraction}
+
+which is a [Boltzmann Distribution](https://en.wikipedia.org/wiki/Boltzmann_distribution).
+
+::: {.callout-note}
+## Soft Policy Extraction
+The locally optimal policy given action-value functions $\Q{s}{a}$ is the Boltzmann distribution
+
+$$
+\pi(a \mid s) = \frac{1}{\Z{s}}\exp\left( \frac{1}{\alpha}\Q{s}{a} \right).
+$$
+
+:::
+
+::: {#fig-boltzmann-distribution}
+::: {#div-boltzmann-distribution .column-body-outset}
+``` {=html}
+<script src="boltzmann-distribution.js"></script>
+```
+:::
+
+Visualization of the optimal Boltzmann distribution.
+:::
+
+::: {.callout-note}
+## Practice Problem
+What does $\pi\new(\cdot \mid s)$ approach as $\alpha \to 0$ and as $\alpha \to \infty$?
+:::
+
+# Soft Policy Improvement {#sec-soft-policy-improvement}
+
+If we make the update from @eq-soft-policy-extraction, how can we relate $\Q[\pi\new]{s}{a}$ to $\Q[\pi\old]{s}{a}$? The key identity is that due to the optimization problem, we know that
+
+$$
+\E[{\action[\pi\new]}]{\Q[\pi\old]{s}{a} - \alpha\log\pi\new(a \mid s)} \geq \underbrace{\E[{\action[\pi\old]}]{\Q[\pi\old]{s}{a} - \alpha\log\pi\old(a \mid s)}}_{\V[\pi\old]{s}}.
+$$
+
+Now using the same unrolling trick in the hard policy improvement theorem, we see that
+
+$$
+\begin{align*}
+\Q[\pi\old]{s}{a} &= \E[\transition]{r + \gamma\V[\pi\old]{s'}} \\
+&\leq \E[\transition]{r + \gamma\E[a' \sim \pi\new(\cdot \mid s)]{\Q[\pi\old]{s'}{a'} - \log \pi\new(a' \mid s')}} \\
+&\;\;\vdots \\
+&\leq \E[\pi\new]{\sum_{t = 0}^\infty \gamma^t ( r_t - \log \pi\new(a_t \mid s_t) ) \;\middle|\; s_0 = s} \\
+&= \Q[\pi\new]{s}{a}.
+\end{align*}
+$$
+
+# Soft Policy Evaluation {#sec-soft-policy-evaluation}
+
+# Soft Policy Iteration {#sec-soft-policy-iteration}
+
+Now we have the tools needed to define the full soft policy iteration algorithm:
+    1. Run one step of soft policy improvement (@sec-soft-policy-extraction)
+
+We consider the $\ell_\infty$ norm on the action-value functions defined by $\| \widetilde{Q}^{\pi\new} - \widetilde{Q}^{\pi\old} \|_\infty \defeq \max_{s \in \SS, a \in \AA} | \Q[\pi\new]{s}{a} - \Q[\pi\old]{s}{a} |$. Then
+
+$$
+\newcommand{\norm}{\|\widetilde{Q}^{\pi\new} - \widetilde{Q}^{\pi\old}\|_\infty}
+\begin{align*}
+\V[\pi]{s} &= \E[\action]{\Q{s}{a} - \alpha\log\pi(a \mid s)} \\
+&= \E[\action]{\Q{s}{a} - \alpha\Q{s}{a}} + \log\Z{s} \\
+&= (1 - \alpha)\E[\action]{\Q{s}{a}} + \log \int_\AA \exp \Q{s}{a} \; \mathrm{d}a
+\end{align*}
+$$
+
+Now we see that
+
+$$
+\begin{align*}
+\log \int_\AA \exp \Q{s}{a} \;\mathrm{d}a &\leq \log \int_\AA \exp\!\left(\Q[\pi\old]{s}{a} + \norm\right) \\
+&= \log\left( \exp \norm \int_\AA \exp \Q{s}{a} \; \mathrm{d}a \right) \\
+&= \norm + \log\int_\AA\exp\Q{s}{a}\;\mathrm{d}a.
+\end{align*}
+$$
+
+## Soft Policy Improvement
+
+In the hard setting, we relied on the hard policy improvement theorem to prove that our policy update improved our objective.
+
+::: {.callout-note}
+## Hard Policy Improvement Theorem ([Sutton & Barto §4.1](http://incompleteideas.net/book/the-book-2nd.html))
+For two policies $\pi\new$ and $\pi\old$, if
+
+$$
+V^{\pi\old}(s) \leq \E[{\action[\pi\new]}]{Q^{\pi\old}(s, a)}
+$$
+
+for all $s \in \SS$, then $J(\pi\new) \geq J(\pi\old)$.
+:::
+
+Considering the update in @sec-soft-policy-iteration, we have a simple optimization bound:
+
+$$
+\KL{\pi\new(\cdot \mid s)}{\pi\new\opt(\cdot \mid s)} \leq \KL{\pi\old(\cdot \mid s)}{\pi\new\opt(\cdot \mid s)}.
+$$
+
+Since $\pi\new\opt$ is a Boltzmann distribution, we can rewrite the KL divergence between some policy $\pi$ and $\pi\new\opt$ as
+
+$$
+\begin{align*}
+\KL{\pi(\cdot \mid s)}{\pi\new\opt(\cdot \mid s)} &= \E[\action]{\log \pi(a \mid s) - \log \pi\new\opt(a \mid s)} \\
+&= \E[\action]{\log \pi(a \mid s) - \log\left( \frac{\exp \Q[\pi\old]{s}{a}}{\Z[\pi\old]{s}} \right)} \\
+&= \E[\action]{\log \pi(a \mid s) - \Q[\pi\old]{s}{a}} + \Z[\pi\old]{s}.
+\end{align*}
+$$
+
+This lets us rewrite the optimization bound as
+
+$$
+\E[{\action[\pi\new]}]{\log \pi\new(a \mid s_t) - \Q[\pi\old]{s_t}{a}} \leq \E[{\action[\pi\old]}]{\log \pi\old(a \mid s_t) - \Q[\pi\old]{s_t}{a}}.
+$$
+
+Inverting this inequality and substituting in the soft value function, we see that
+
+$$
+\V[\pi\old]{s_t} \leq \E[{\action[\pi\new]}]{\Q[\pi\old]{s_t}{a} - \log\pi\new(a \mid s_t)}.
+$$
+
+Now using the same unrolling trick in the hard policy improvement theorem, we see that
+
+$$
+\begin{align*}
+\Q[\pi\old]{s_t}{a_t} &= \E[s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)]{r_t + \gamma\V[\pi\old](s_{t+1})} \\
+&\leq \E[s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)]{r_t + \gamma\E[a_{t+1} \sim \pi(\cdot \mid s_t)]{\Q[\pi\old]{s_{t+1}}{a_{t+1}} - \log \pi\new(a_{t+1} \mid s_{t+1})}} \\
+&\;\;\vdots \\
+&\leq \E[\pi\new]{\sum_{t' = t}^{\infty} \gamma^{t' - t} \left( r_t - \log \pi\new(a_t \mid s_t) \right)} \\
+&= \Q[\pi\new]{s_t}{a_t}.
+\end{align*}
+$$
+
+Thus, we have that $\J{\pi\new} \geq \J{\pi\old}$.

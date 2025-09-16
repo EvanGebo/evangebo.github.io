@@ -1,0 +1,147 @@
+---
+title: "Inverse Reinforcement Learning"
+author: "Evan Gebo"
+date: "2025-08-23"
+categories: [reinforcement learning, machine learning]
+navbar: true
+---
+
+::: {.hidden}
+$$
+\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\argmin}{argmin}
+
+\newcommand{\focus}[1]{\textcolor{WildStrawberry}{ #1 }}
+\newcommand{\enlarge}{\vphantom{\sum}}
+
+\newcommand{\defeq}{\mathrel{\mathop{=}\limits^{\text{def}}}}
+\newcommand{\E}[2][]{\operatorname*{\mathbb{E}}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\cov}[2][]{\operatorname*{cov}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\var}[2][]{\operatorname*{cov}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\kl}[2]{D_\text{KL}\left( #1 \;\middle\|\; #2 \right)}
+
+\newcommand{\t}{\boldsymbol\theta}
+\newcommand{\p}{\boldsymbol\phi}
+\newcommand{\m}{\boldsymbol\mu}
+
+\newcommand{\N}{\mathbb N}
+\newcommand{\R}{\mathbb R}
+\newcommand{\HH}{\mathbb H}
+
+\newcommand{\g}{\mathbf g}
+\newcommand{\W}{\mathbf W}
+\newcommand{\H}{\mathbf H}
+\newcommand{\b}{\mathbf b}
+
+\newcommand{\LL}{\mathcal L}
+\newcommand{\SS}{\mathcal S}
+\newcommand{\AA}{\mathcal A}
+\newcommand{\NN}{\mathcal N}
+\newcommand{\RR}{\mathcal R}
+\newcommand{\TT}{\mathcal T}
+\newcommand{\DD}{\mathcal D}
+
+\newcommand{\old}{_\text{old}}
+\newcommand{\V}[1][\pi]{V^{#1}}
+\newcommand{\Q}[1][\pi]{Q^{#1}}
+\newcommand{\A}[1][\pi]{A^{#1}}
+\newcommand{\transition}{s', r \sim p(\cdot, \cdot \mid s, a)}
+\newcommand{\start}{s_0 \sim \rho_0}
+\newcommand{\SUM}{\sum_{t=0}^\infty}
+
+\newcommand{\tint}[1]{\int\limits_{\tau \in \TT} #1 \;\mathrm{d}\tau}
+$$
+
+```{=html}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
+<script src="utils.js"></script>
+```
+:::
+
+The standard MDP notation is in terms of single actions, so we'll redefine some quantities in terms of trajectories. First, we'll define the probability of a trajectory as
+$$
+p_\pi(\tau) \defeq \rho_0(s_t)\prod_{t=0}^\infty \pi(a_t \mid s_t)p(s_{t+1}, r_t \mid s_t, a_t),
+$$
+and then we'll define the reward of a trajectory as
+$$
+R(\tau) \defeq \SUM \gamma^t r_t.
+$$
+
+# Linear IRL
+
+To build intuition, we'll first consider MDPs with deterministic linear rewards, i.e. $r_t = \t^\top \p(s_t)$ for some parameter vector $\t \in \R^d$ and feature map $\p: \SS \to \R^d$. In this setting, our objective function has a simpler formulation:
+$$
+\begin{align*}
+J(\pi) = \E[\pi]{\SUM \gamma^t r_t} = \E[\pi]{\SUM \gamma^t \t^\top\p(s_t)} = \t^\top \E[\pi]{ \SUM \gamma^t \p(s_t) }.
+\end{align*}
+$$
+We can also use this to rewrite the reward of a single trajectory:
+$$
+R(\tau) = \SUM \gamma^t r_t = \SUM \gamma^t \t^\top\p(s_t) = \t^\top \SUM \gamma^t \p(s_t).
+$$
+
+# IRL
+
+We denote the entropy of this distribution as
+$$
+\HH[p_\pi] \defeq -\tint{p_\pi(\tau) \ln p_\pi(\tau)}.
+$$
+
+Our problem formulation is now
+$$
+\begin{align*}
+\pi^* = \argmax_{\pi \in \Pi} \;& \HH[p_\pi] \\
+\text{s.t. }&\tint{p_\pi(\tau)r_\pi(\tau)p} = \E[\tau \sim p_E]{r(\tau)} \\
+&\tint{p_\pi(\tau)} = 1.
+\end{align*}.
+$$
+
+# Maximum Entropy Reinforcement Learning
+
+We have a dataset of expert trajectories $\DD = \{\tau_i\}_{i=1}^n$, but ideally we'd have some actual formulation of the expert policy $\pi_E$. If we assume that the expert maximes entropy, i.e. is the least commital, then our optimization problem is
+$$
+\begin{align*}
+\pi_E = \argmax_{\pi \in \Pi} \;&\HH[p_\pi] \\
+\text{such that }&\E[\tau \sim p_\pi]{R(\tau)} = \E[\tau \sim \DD]{R(\tau)} \\
+&\tint{p_\pi(\tau)} = 1 \\
+&p_\pi(\tau) \geq 0 \text{ for all } \tau \in \TT.
+\end{align*}
+$$
+
+Introducing Lagrange multipliers $\alpha, \beta \in \R$ we form the Lagrangian
+$$
+\LL[p_\pi] = \HH[p_\pi] + \alpha\left(\E[\tau \sim p_\pi]{R(\tau)} - \E[\tau \sim \DD]{R(\tau)}\right) + \beta\left( \tint{p_\pi(\tau)} - 1 \right).
+$$
+Taking the [functional derivative](https://en.wikipedia.org/wiki/Functional_derivative), we see that
+$$
+\frac{\partial\LL}{\partial p_\pi(\tau)} = -1 - \log p_\pi(\tau) - \alpha R(\tau) - \beta.
+$$
+To optimize $p_\pi$, we set this equal to zero and solve, which yields
+$$
+p_\pi(\tau) = \underbrace{e^{1 + \beta}}_C e^{\alpha R(\tau)}.
+$$
+We also know that $p_\pi$ is a probability distribution. Clearly it's always non-negative, but it must also integrate to one:
+$$
+1 = \tint{p_\pi(\tau)} = e^{1 + \beta}\tint{e^{\alpha R(\tau)}} \implies e^{1 + \beta} = \frac{1}{\tint{e^{\alpha R(\tau)}}}.
+$$
+To simplify notation, we call the denominator the partition function
+$$
+Z(\alpha) \defeq \tint{e^{\alpha R(\tau)}}.
+$$
+Something to note is that changing $\alpha$ only has the effect of scaling the reward function $R$. Therefore we can set $\alpha=1$ without loss of generality, giving the final maximum entropy policy as
+$$
+p_\pi(\tau) = \frac{e^{R(\tau)}}{Z},
+$$
+which is a [Boltzmann Distribution](https://en.wikipedia.org/wiki/Boltzmann_distribution).
+
+# Visualization
+
+::: {#fig-gridworld}
+::: {#div-gridworld .column-body-outset}
+``` {=html}
+<script src="gridworld.js"></script>
+```
+:::
+Caption.
+:::
