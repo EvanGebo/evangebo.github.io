@@ -1,5 +1,7 @@
 project:
   type: website
+  resources:
+    - js/**/*.js
   preview:
     port: 4200
     browser: false
@@ -15,13 +17,16 @@ website:
 
 format:
   html:
-    respect-user-color-scheme: true
     theme:
       light: flatly
-      dark: darkly
     css: styles.css
     toc: true
     toc-depth: 3
+    include-in-header: _header.html
 
 bibliography: references.bib
 csl: ieee.csl
+
+navbar: true
+number-sections: true
+reference-location: margin

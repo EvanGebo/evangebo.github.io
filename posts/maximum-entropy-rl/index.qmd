@@ -1,10 +1,13 @@
 ---
-title: "Soft Reinforcement Learning"
+title: "Maximum Entropy Reinforcement Learning"
+description: "An introduction to maximum entropy reinforcement learning."
 author: "Evan Gebo"
-date: "2025-08-23"
+date: "2025-09-16"
 categories: [reinforcement learning, machine learning]
-navbar: true
-number-sections: true
+include-after-body:
+ - text: |
+    <script src="/js/utils.js" defer></script>
+    <script src="boltzmann-distribution.js" defer></script>
 ---
 
 ::: {.hidden}
@@ -52,28 +55,22 @@ $$
 \newcommand{\opt}{^*}
 $$
 
-```{=html}
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
-<script src="utils.js"></script>
-```
 :::
 
-| Notation                     | Definition                                  |
-|:----------------------------:|:--------------------------------------------|
-| $\pi \in \Pi$                | Policy $\pi$ in policy space $\Pi$          |
-| $a \in \AA$                  | Action $a$ in action space $\AA$            |
-| $s \in \SS$                  | State $s$ in state space $\SS$              |
-| $r \in \RR$                  | Reward $r$ in reward space $\RR$            |
-| $\Delta(\AA)$                | Probability distributions over $\AA$        |
-| $\Delta(\AA)^\SS$            | Probability distributions over $\AA$ conditioned on $\SS$ |
-| $V^\pi(s)$                   | Hard value function for policy $\pi$        |
-| $\V{s}$                      | Soft value function for policy $\pi$        |
-| $Q^\pi(s, a)$                | Hard action-value function for policy $\pi$ |
-| $\Q{s}{a}$                   | Soft action-value function for policy $\pi$ |
-| $J(\pi)$                     | Hard expected discounted reward objective   |
-| $\J{\pi}$                    | Soft expected discounted reward objective   |
+| Notation          | Definition                                                |
+|:-----------------:|:----------------------------------------------------------|
+| $\pi \in \Pi$     | Policy $\pi$ in policy space $\Pi$                        |
+| $a \in \AA$       | Action $a$ in action space $\AA$                          |
+| $s \in \SS$       | State $s$ in state space $\SS$                            |
+| $r \in \RR$       | Reward $r$ in reward space $\RR$                          |
+| $\Delta(\AA)$     | Probability distributions over $\AA$                      |
+| $\Delta(\AA)^\SS$ | Probability distributions over $\AA$ conditioned on $\SS$ |
+| $V^\pi(s)$        | Hard value function for policy $\pi$                      |
+| $\V{s}$           | Soft value function for policy $\pi$                      |
+| $Q^\pi(s, a)$     | Hard action-value function for policy $\pi$               |
+| $\Q{s}{a}$        | Soft action-value function for policy $\pi$               |
+| $J(\pi)$          | Hard expected discounted reward objective                 |
+| $\J{\pi}$         | Soft expected discounted reward objective                 |
 : Common notation. {#tbl-notation}
 
 In classic reinforcement learning we learn a deterministic policy. This is theoretically optimal, but it doesn't always work well in practice. For one, our environment often isn't exactly a Markov Decision Process, meaning the Markov assumption may not hold in practice. Additionally, the higher exploration of stochastic policies can make training faster, and also be more robust in unknown environments. So how can we modify the "hard" reinforcement learning problem of learning an optimal deterministic policy to the "soft" reinforcement learning problem of learnin an optimal stochastic policy?
@@ -116,11 +113,13 @@ $$
 $$
 
 ::: {.callout-note}
-## Practice Problem
-Using Lagrange multipliers and the technques from @sec-optimal-policies, prove that for finite $\AA$, the uniform policy $\pi_\text{uniform}$ maximizes entropy, i.e.
+## Excersise
+::: {#exr-entropy}
+Using Lagrange multipliers and the technques from @sec-soft-policy-evaluation, prove that for finite $\AA$, the uniform policy $\pi_\text{uniform}$ maximizes entropy, i.e.
 $$
 \pi_\text{uniform}(\cdot \mid s) = \argmax_{\pi \in \Delta(\AA)} \; \H{\pi(\cdot \mid s)}.
 $$
+:::
 :::
 
 In infinite action spaces $\AA$, both the deterministic and uniform policies have undefined entropy, but we can consider their limit:
@@ -135,7 +134,7 @@ $$
 \H{\pi_\text{deterministic}(\cdot \mid s)} = \lim_{\varepsilon \to 0} \H{\text{Uniform}[-\varepsilon, \varepsilon]} = \lim_{\varepsilon \to 0} \log (2\varepsilon) = -\infty.
 $$
 
-This matches our intuition from the finite case (except with $0$ being replaced with $-\infty$).
+This matches our intuition from the finite case (except with $0$ being replaced with $-\infty$). This gives us the soft policy improvement result.
 
 # Expected Discounted Entropy-Regularized Rewards {#sec-objective}
 
@@ -217,7 +216,7 @@ $$
 \end{align*}
 $$
 
-# Soft Policy Extraction {#sec-sof-policy-evaluation}
+# Soft Policy Extraction {#sec-soft-policy-extraction}
 
 Soft policy improvement is an iterative algorithm, so let's start with a policy $\pi\old$ and the corresponding action-value functions $\Q[\pi\old]{s}{a}$. Then the optimal next policy is
 
@@ -257,33 +256,36 @@ We define the denominator as the partition function $\Z[\pi\old]{s} \defeq \int_
 
 $$
 \pi\new(\cdot \mid s) = \frac{1}{\Z[\pi\old]{s}}\exp\left( \frac{1}{\alpha}\Q[\pi\old]{s}{a} \right),
-$$ {#eq-soft-policy-extraction}
+$$
 
 which is a [Boltzmann Distribution](https://en.wikipedia.org/wiki/Boltzmann_distribution).
 
 ::: {.callout-note}
 ## Soft Policy Extraction
-The locally optimal policy given action-value functions $\Q{s}{a}$ is the Boltzmann distribution
+::: {#thm-soft-policy-extraction}
+## Soft Policy Extraction
+The locally optimal policy given action-value functions $\Q[\pi\old]{s}{a}$ is the Boltzmann distribution
 
 $$
-\pi(a \mid s) = \frac{1}{\Z{s}}\exp\left( \frac{1}{\alpha}\Q{s}{a} \right).
-$$
+\pi\new(a \mid s) = \frac{1}{\Z[\pi\old]{s}}\exp\left( \frac{1}{\alpha}\Q[\pi\old]{s}{a} \right).
+$$ {#eq-soft-policy-extraction}
 
 :::
+:::
+
+You can investigate this distribution in @fig-boltzmann-distribution.
 
 ::: {#fig-boltzmann-distribution}
 ::: {#div-boltzmann-distribution .column-body-outset}
-``` {=html}
-<script src="boltzmann-distribution.js"></script>
-```
 :::
-
-Visualization of the optimal Boltzmann distribution.
+Visualization of the optimal Boltzmann distribution for a simple 4-action problem.
 :::
 
 ::: {.callout-note}
 ## Practice Problem
-What does $\pi\new(\cdot \mid s)$ approach as $\alpha \to 0$ and as $\alpha \to \infty$?
+::: {#exr-entropy-convergence}
+What does $\pi\new(\cdot \mid s)$ approach as $\alpha \to 0$ and as $\alpha \to \infty$? Prove this convergence using a limit argument.
+:::
 :::
 
 # Soft Policy Improvement {#sec-soft-policy-improvement}
@@ -305,6 +307,21 @@ $$
 &= \Q[\pi\new]{s}{a}.
 \end{align*}
 $$
+
+::: {.callout-note}
+## Soft Policy Improvement
+::: {#thm-soft-policy-improvement}
+## Soft Policy Improvement
+For two policies $\pi\new$ and $\pi\old$, if
+
+$$
+\V[\pi\old]{s} \leq \E[{\action[\pi\new]}]{\Q[\pi\old]{s}{a} - \alpha\log\pi\new(a \mid s)},
+$$
+
+then $\Q[\pi\old]{s}{a} \leq \Q[\pi\new]{s}{a}$ for all $a \in \AA$.
+
+:::
+:::
 
 # Soft Policy Evaluation {#sec-soft-policy-evaluation}
 
