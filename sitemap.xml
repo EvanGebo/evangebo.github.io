@@ -1,19 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://EvanGebo.github.io/evangebo.github.io/posts/welcome/index.html</loc>
-    <lastmod>2025-08-23T20:03:11.577Z</lastmod>
+    <loc>https://EvanGebo.github.io/evangebo.github.io/about.html</loc>
+    <lastmod>2025-08-29T19:42:08.865Z</lastmod>
+  </url>
+  <url>
+    <loc>https://EvanGebo.github.io/evangebo.github.io/posts/gd/index.html</loc>
+    <lastmod>2025-08-31T16:13:54.512Z</lastmod>
+  </url>
+  <url>
+    <loc>https://EvanGebo.github.io/evangebo.github.io/posts/irl/index.html</loc>
+    <lastmod>2025-09-16T18:49:07.583Z</lastmod>
   </url>
   <url>
     <loc>https://EvanGebo.github.io/evangebo.github.io/index.html</loc>
-    <lastmod>2025-08-23T20:03:11.576Z</lastmod>
+    <lastmod>2025-08-29T19:41:53.880Z</lastmod>
   </url>
   <url>
-    <loc>https://EvanGebo.github.io/evangebo.github.io/about.html</loc>
-    <lastmod>2025-08-23T20:03:11.576Z</lastmod>
+    <loc>https://EvanGebo.github.io/evangebo.github.io/posts/maximum-entropy-rl/index.html</loc>
+    <lastmod>2025-11-05T01:06:44.090Z</lastmod>
   </url>
   <url>
-    <loc>https://EvanGebo.github.io/evangebo.github.io/posts/post-with-code/index.html</loc>
-    <lastmod>2025-08-23T20:03:11.577Z</lastmod>
+    <loc>https://EvanGebo.github.io/evangebo.github.io/posts/trpo/index.html</loc>
+    <lastmod>2025-11-05T00:34:12.901Z</lastmod>
   </url>
 </urlset>

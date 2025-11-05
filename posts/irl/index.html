@@ -9,7 +9,7 @@
 <meta name="author" content="Evan Gebo">
 <meta name="dcterms.date" content="2025-08-23">
 
-<title>Post With Code – blog</title>
+<title>Inverse Reinforcement Learning – Evan’s Blog</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -41,7 +41,7 @@ ul.task-list li input[type="checkbox"] {
 <link href="../../site_libs/quarto-html/quarto-syntax-highlighting-ea385d0e468b0dd5ea5bf0780b1290d9.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../site_libs/bootstrap/bootstrap-8d2fbf5783b7b8a71624fbc6386374a9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-724ccf1039b988e95747fb15f2d8dda7.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -69,12 +69,48 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../../styles.css">
+<meta property="og:title" content="Inverse Reinforcement Learning – Evan’s Blog">
+<meta property="og:description" content="">
+<meta property="og:site_name" content="Evan's Blog">
 </head>
 
-<body class="nav-fixed fullcontent quarto-light">
+<body class="nav-fixed quarto-light">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top quarto-banner">
@@ -82,7 +118,7 @@ ul.task-list li input[type="checkbox"] {
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
     <a class="navbar-brand" href="../../index.html">
-    <span class="navbar-title">blog</span>
+    <span class="navbar-title">Evan’s Blog</span>
     </a>
   </div>
             <div id="quarto-search" class="" title="Search"></div>
@@ -96,12 +132,7 @@ ul.task-list li input[type="checkbox"] {
 <span class="menu-text">About</span></a>
   </li>  
   <li class="nav-item compact">
-    <a class="nav-link" href="https://github.com/"> <i class="bi bi-github" role="img">
-</i> 
-<span class="menu-text"></span></a>
-  </li>  
-  <li class="nav-item compact">
-    <a class="nav-link" href="https://twitter.com"> <i class="bi bi-twitter" role="img">
+    <a class="nav-link" href="https://github.com/EvanGebo/evangebo.github.io"> <i class="bi bi-github" role="img">
 </i> 
 <span class="menu-text"></span></a>
   </li>  
@@ -116,11 +147,10 @@ ul.task-list li input[type="checkbox"] {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Post With Code</h1>
+      <h1 class="title">Inverse Reinforcement Learning</h1>
                                 <div class="quarto-categories">
-                <div class="quarto-category">news</div>
-                <div class="quarto-category">code</div>
-                <div class="quarto-category">analysis</div>
+                <div class="quarto-category">reinforcement learning</div>
+                <div class="quarto-category">machine learning</div>
               </div>
                   </div>
   </div>
@@ -149,17 +179,101 @@ ul.task-list li input[type="checkbox"] {
   </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#linear-irl" id="toc-linear-irl" class="nav-link active" data-scroll-target="#linear-irl"><span class="header-section-number">1</span> Linear IRL</a></li>
+  <li><a href="#irl" id="toc-irl" class="nav-link" data-scroll-target="#irl"><span class="header-section-number">2</span> IRL</a></li>
+  <li><a href="#maximum-entropy-reinforcement-learning" id="toc-maximum-entropy-reinforcement-learning" class="nav-link" data-scroll-target="#maximum-entropy-reinforcement-learning"><span class="header-section-number">3</span> Maximum Entropy Reinforcement Learning</a></li>
+  <li><a href="#visualization" id="toc-visualization" class="nav-link" data-scroll-target="#visualization"><span class="header-section-number">4</span> Visualization</a></li>
+  </ul>
+</nav>
+    </div>
 <!-- main -->
-<main class="content quarto-banner-title-block" id="quarto-document-content">
+<main class="content quarto-banner-title-block page-columns page-full" id="quarto-document-content">
 
 
 
 
 
-<p>This is a post with executable code.</p>
+<div class="hidden">
+<p>$$ </p>
+<p>$$</p>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
+<script src="utils.js"></script>
+</div>
+<p>The standard MDP notation is in terms of single actions, so we’ll redefine some quantities in terms of trajectories. First, we’ll define the probability of a trajectory as <span class="math display">\[
+p_\pi(\tau) \mathrel{\mathop{=}\limits^{\text{def}}}\rho_0(s_t)\prod_{t=0}^\infty \pi(a_t \mid s_t)p(s_{t+1}, r_t \mid s_t, a_t),
+\]</span> and then we’ll define the reward of a trajectory as <span class="math display">\[
+R(\tau) \mathrel{\mathop{=}\limits^{\text{def}}}\sum_{t=0}^\infty\gamma^t r_t.
+\]</span></p>
+<section id="linear-irl" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Linear IRL</h1>
+<p>To build intuition, we’ll first consider MDPs with deterministic linear rewards, i.e.&nbsp;<span class="math inline">\(r_t = \boldsymbol\theta^\top \boldsymbol\phi(s_t)\)</span> for some parameter vector <span class="math inline">\(\boldsymbol\theta\in \mathbb R^d\)</span> and feature map <span class="math inline">\(\boldsymbol\phi: \mathcal S\to \mathbb R^d\)</span>. In this setting, our objective function has a simpler formulation: <span class="math display">\[
+\begin{align*}
+J(\pi) = \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[ \sum_{t=0}^\infty\gamma^t r_t \right] = \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[ \sum_{t=0}^\infty\gamma^t \boldsymbol\theta^\top\boldsymbol\phi(s_t) \right] = \boldsymbol\theta^\top \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t \boldsymbol\phi(s_t)  \right].
+\end{align*}
+\]</span> We can also use this to rewrite the reward of a single trajectory: <span class="math display">\[
+R(\tau) = \sum_{t=0}^\infty\gamma^t r_t = \sum_{t=0}^\infty\gamma^t \boldsymbol\theta^\top\boldsymbol\phi(s_t) = \boldsymbol\theta^\top \sum_{t=0}^\infty\gamma^t \boldsymbol\phi(s_t).
+\]</span></p>
+</section>
+<section id="irl" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> IRL</h1>
+<p>We denote the entropy of this distribution as <span class="math display">\[
+\mathbb H[p_\pi] \mathrel{\mathop{=}\limits^{\text{def}}}-\int\limits_{\tau \in \mathcal T} p_\pi(\tau) \ln p_\pi(\tau) \;\mathrm{d}\tau.
+\]</span></p>
+<p>Our problem formulation is now <span class="math display">\[
+\begin{align*}
+\pi^* = \mathop{\mathrm{argmax}}_{\pi \in \Pi} \;&amp; \mathbb H[p_\pi] \\
+\text{s.t. }&amp;\int\limits_{\tau \in \mathcal T} p_\pi(\tau)r_\pi(\tau)p \;\mathrm{d}\tau = \operatorname*{\mathbb{E}}_{ \substack{\tau \sim p_E} }\!\left[ r(\tau) \right] \\
+&amp;\int\limits_{\tau \in \mathcal T} p_\pi(\tau) \;\mathrm{d}\tau = 1.
+\end{align*}.
+\]</span></p>
+</section>
+<section id="maximum-entropy-reinforcement-learning" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Maximum Entropy Reinforcement Learning</h1>
+<p>We have a dataset of expert trajectories <span class="math inline">\(\mathcal D= \{\tau_i\}_{i=1}^n\)</span>, but ideally we’d have some actual formulation of the expert policy <span class="math inline">\(\pi_E\)</span>. If we assume that the expert maximes entropy, i.e.&nbsp;is the least commital, then our optimization problem is <span class="math display">\[
+\begin{align*}
+\pi_E = \mathop{\mathrm{argmax}}_{\pi \in \Pi} \;&amp;\mathbb H[p_\pi] \\
+\text{such that }&amp;\operatorname*{\mathbb{E}}_{ \substack{\tau \sim p_\pi} }\!\left[ R(\tau) \right] = \operatorname*{\mathbb{E}}_{ \substack{\tau \sim \mathcal D} }\!\left[ R(\tau) \right] \\
+&amp;\int\limits_{\tau \in \mathcal T} p_\pi(\tau) \;\mathrm{d}\tau = 1 \\
+&amp;p_\pi(\tau) \geq 0 \text{ for all } \tau \in \mathcal T.
+\end{align*}
+\]</span></p>
+<p>Introducing Lagrange multipliers <span class="math inline">\(\alpha, \beta \in \mathbb R\)</span> we form the Lagrangian <span class="math display">\[
+\mathcal L[p_\pi] = \mathbb H[p_\pi] + \alpha\left(\operatorname*{\mathbb{E}}_{ \substack{\tau \sim p_\pi} }\!\left[ R(\tau) \right] - \operatorname*{\mathbb{E}}_{ \substack{\tau \sim \mathcal D} }\!\left[ R(\tau) \right]\right) + \beta\left( \int\limits_{\tau \in \mathcal T} p_\pi(\tau) \;\mathrm{d}\tau - 1 \right).
+\]</span> Taking the <a href="https://en.wikipedia.org/wiki/Functional_derivative">functional derivative</a>, we see that <span class="math display">\[
+\frac{\partial\mathcal L}{\partial p_\pi(\tau)} = -1 - \log p_\pi(\tau) - \alpha R(\tau) - \beta.
+\]</span> To optimize <span class="math inline">\(p_\pi\)</span>, we set this equal to zero and solve, which yields <span class="math display">\[
+p_\pi(\tau) = \underbrace{e^{1 + \beta}}_C e^{\alpha R(\tau)}.
+\]</span> We also know that <span class="math inline">\(p_\pi\)</span> is a probability distribution. Clearly it’s always non-negative, but it must also integrate to one: <span class="math display">\[
+1 = \int\limits_{\tau \in \mathcal T} p_\pi(\tau) \;\mathrm{d}\tau = e^{1 + \beta}\int\limits_{\tau \in \mathcal T} e^{\alpha R(\tau)} \;\mathrm{d}\tau \implies e^{1 + \beta} = \frac{1}{\int\limits_{\tau \in \mathcal T} e^{\alpha R(\tau)} \;\mathrm{d}\tau}.
+\]</span> To simplify notation, we call the denominator the partition function <span class="math display">\[
+Z(\alpha) \mathrel{\mathop{=}\limits^{\text{def}}}\int\limits_{\tau \in \mathcal T} e^{\alpha R(\tau)} \;\mathrm{d}\tau.
+\]</span> Something to note is that changing <span class="math inline">\(\alpha\)</span> only has the effect of scaling the reward function <span class="math inline">\(R\)</span>. Therefore we can set <span class="math inline">\(\alpha=1\)</span> without loss of generality, giving the final maximum entropy policy as <span class="math display">\[
+p_\pi(\tau) = \frac{e^{R(\tau)}}{Z},
+\]</span> which is a <a href="https://en.wikipedia.org/wiki/Boltzmann_distribution">Boltzmann Distribution</a>.</p>
+</section>
+<section id="visualization" class="level1 page-columns page-full" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Visualization</h1>
+<div id="fig-gridworld" class="quarto-float quarto-figure quarto-figure-center anchored page-columns page-full">
+<figure class="quarto-float quarto-float-fig figure page-columns page-full">
+<div aria-describedby="fig-gridworld-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca" class="page-columns page-full">
+<div id="div-gridworld" class="column-body-outset">
+<script src="gridworld.js"></script>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gridworld-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Caption.
+</figcaption>
+</figure>
+</div>
 
 
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
