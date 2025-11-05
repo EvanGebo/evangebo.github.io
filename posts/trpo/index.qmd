@@ -3,43 +3,57 @@ title: "Trust Region Policy Optimization"
 author: "Evan Gebo"
 date: "2025-08-23"
 categories: [reinforcement learning, machine learning]
-citation: true
-appendix-cite-as: bibtex
 navbar: true
-image: "image.jpg"
+image: "trust-region.jpg"
+description: "An theoretical introduction to the fallbacks of policy gradient methods, and how trust region policy optimization and proximal policy optimization help stabilize the policy updates."
 ---
-
-<!-- 
-\newcommand{\defeq}{\mathrel{\raise-0.4ex\hbox{$\mathop{=}\limits^{\text{def}}$}}}
-\newcommand{\defeq}{\mathrel{\mathop{=}\limits^{\raise-10.5ex\hbox{\scriptsize def}}}}
- -->
 
 ::: {.hidden}
 $$
 \DeclareMathOperator*{\argmax}{argmax}
 \DeclareMathOperator*{\argmin}{argmin}
-\newcommand{\old}{_\text{old}}
-\newcommand{\L}{\mathcal{L}}
+
+\newcommand{\focus}[1]{\textcolor{WildStrawberry}{ #1 }}
+\newcommand{\focusA}[1]{\textcolor{WildStrawberry}{ #1 }}
+\newcommand{\focusB}[1]{\textcolor{NavyBlue}{ #1 }}
+\newcommand{\focusC}[1]{\textcolor{OliveGreen}{ #1 }}
+
+\newcommand{\defeq}{\mathrel{\mathop{=}\limits^{\text{def}}}}
+\newcommand{\E}[2][]{\operatorname*{\mathbb{E}}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\cov}[2][]{\operatorname*{cov}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\var}[2][]{\operatorname*{cov}_{ \substack{#1} }\!\left[ #2 \right]}
+\newcommand{\DKL}[3][]{D_\text{KL}^{#1} \!\left( \vphantom{\big(} #2 \,\|\, #3 \vphantom{\big(} \right)}
+
+\newcommand{\t}{\boldsymbol\theta}
+\newcommand{\p}{\boldsymbol\phi}
+\newcommand{\enlarge}{\vphantom{\sum}}
+
+\newcommand{\N}{\mathbb N}
+\newcommand{\R}{\mathbb R}
+
+\newcommand{\g}{\mathbf g}
+\newcommand{\x}{\mathbf x}
+\newcommand{\W}{\mathbf W}
+\newcommand{\H}{\mathbf H}
+\newcommand{\b}{\mathbf b}
+
+\newcommand{\LL}{\mathcal L}
 \newcommand{\SS}{\mathcal S}
 \newcommand{\AA}{\mathcal A}
 \newcommand{\NN}{\mathcal N}
-\newcommand{\N}{\mathbb{N}}
-\newcommand{\R}{\mathbb{R}}
-\newcommand{\W}{\mathbf W}
-\newcommand{\b}{\mathbf b}
-\newcommand{\t}{\boldsymbol\theta}
+\newcommand{\MM}{\mathcal M}
+\newcommand{\RR}{\mathcal R}
+\newcommand{\OO}{\mathcal O}
 
-\newcommand{\KL}{D_\text{KL}}
-\newcommand{\enlarge}{\vphantom{\sum}}
-\newcommand{\bar}{\;\middle|\;}
-\newcommand{\defeq}{\mathrel{\mathop{=}\limits^{\text{def}}}}
-\newcommand{\E}[2][\pi]{\operatorname*{\mathbb{E}}_{\substack{#1}}\!\left[ #2 \right]}
-
+\newcommand{\old}{_\text{old}}
+\newcommand{\new}{_\text{new}}
 \newcommand{\V}[1][\pi]{V^{#1}}
 \newcommand{\Q}[1][\pi]{Q^{#1}}
 \newcommand{\A}[1][\pi]{A^{#1}}
 \newcommand{\transition}{s', r \sim p(\cdot, \cdot \mid s, a)}
 \newcommand{\start}{s_0 \sim \rho_0}
+\newcommand{\SUM}{\sum_{t=0}^\infty}
+\newcommand{\wLL}{\widetilde{\LL}}
 $$
 
 ```{=html}
@@ -48,193 +62,257 @@ $$
 ```
 :::
 
-| Notation                       | Definition                     |
-|:------------------------------:|:-------------------------------|
-| $\pi \in \Pi$                  | Policy in policy space         |
-| $s \in \SS$                     | State in state space           |
-| $a \in \AA$                     | Action in action space         |
-| $a \sim \pi(\cdot \mid s)$     | Action sampled from policy     |
-| $\V: \SS \to \R$             | Value function                 |
-| $\Q: \SS \times \AA \to \R$   | Action-value function          |
-| $\A: \SS \times \AA \to \R$   | Advantage function             |
-| $s \sim \rho_0$                | State sampled from the initial state distribution $\rho_0$ |
-| $s \sim \rho_\pi$              | State sampled from $\pi$'s state distribution $\rho_\pi$ |
-| $J: \Pi \to \R$                | Expected reward                |
-| $\L: \Pi \to \R$               | Performance difference         |
+| Notation                                     | Definition                                                                             |
+|:--------------------------------------------:|:---------------------------------------------------------------------------------------|
+| $\pi \in \Pi$                                | Polic $\pi$ in policy space $\Pi$                                                      |
+| $a \in \AA$                                  | Action $a$ in action space $\AA$                                                       |
+| $s \in \SS$                                  | State $s$ in state space $\SS$                                                         |
+| $r \in \R$                                   | Reward $r$ in reward space $\R$                                                        |
+| $V^\pi(s)$                                   | Value function for policy $\pi$                                                        |
+| $Q^\pi(s, a)$                                | Action-value function for policy $\pi$                                                 |
+| $A^\pi(s, a)$                                | Advantage function for policy $\pi$                                                    |
+| $J(\pi)$                                     | Expected discounted reward objective                                                   |
+| $\LL(\pi, \pi')$                             | Performance difference objective                                                       |
+| $\wLL(\pi, \pi')$                            | Surrogate advantage objective                                                          |
+| $\DKL{\pi(\cdot \mid s)}{\pi'(\cdot \mid s)}$ | KL divergence between $\pi$ and $\pi'$ for state $s \in \SS$                           |
+| $\DKL[\max]{\pi}{\pi'}$                      | Maximum KL divergence between $\pi$ and $\pi'$ over all states $s \in \SS$             |
+| $\overline\DKL{\pi}{\pi'}$                   | Expected KL divergence between $\pi$ and $\pi'$ over the state distribution $\rho_\pi$ |
 
-: Common notation. {#tbl-notation}
+: Common notation. Most is standard, except I distinguish the performance difference $\LL$ from the surrogate advantage $\wLL$, and I implicitely parameterize $\pi\new$, $\pi$, and $\pi\old$ by $\t\new$, $\t$, and $\t\old$ respectively. {#tbl-notation}
 
-# Introduction {#sec-introduction}
+Consider a infinite-horizon[^horizon] Markov decision process $\MM$ with states $s \in \SS$, actions $a \in \AA$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition dynamics $p(s', r \mid s, a)$, and initial state distribution $\rho_0(s)$. In reinforcement learning, we learn a policy $\pi \in \Pi$ that  maximizes the expected cumulative discounted rewards
+$$
+J(\pi) \defeq \E[\start]{\V(s_0)}.
+$$ {#eq-expected-cumulative-discounted-rewards}
+While there are many methods to solve this, a popular approach is using policy gradient methods (see [Sutton & Barto, chapter 13](http://incompleteideas.net/book/the-book-2nd.html)) which use gradient descent to directly optimize $J(\pi)$ using $\nabla_\t J(\pi)$, where the policy $\pi(a \mid s)$ is parametized by some vector $\t \in \R^d$ (e.g. a neural network).
 
-Consider the standard infinite-horizon[^1] Markov decision process setup with states $s \in \SS$, actions $a \in \AA$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition distribution $p(s', r \mid s, a)$[^transition], and initial state distribution $\rho_0(s)$. The policy that the agent follows is then a distribution $\pi(a \mid s)$. Remember that the value function $\V$ and the action-value function $\Q$ are defined as
-$$
-\begin{align*}
-\V(s) &\defeq \E{ \sum_{t=0}^\infty \gamma^t r_t \bar s_0 = s } \\
-\Q(s, a) &\defeq \E{ \sum_{t=0}^\infty \gamma^t r_t \bar s_0 = s, a_0 = a },
-\end{align*}
-$$
-where $\mathbb{E}_\pi$ is a shorthand for an expectation over $s_0 \sim \rho_0$, $a_t \sim \pi(\cdot \mid a_t)$, and $s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)$ for $t \in \N_{\geq 1}$.
+[^horizon]: While the analysis is more difficult in the finite-horizon case, the results are the same.
 
-To measure the performance of a policy $\pi$, we use the expected discounted cumulative reward
+::: {.callout-tip}
+### Example: Common Policy Spaces
+
+One common policy space for discrete state and action spaces is the Boltzmann policy (or softmax policy) parameterized by $\t \in \R^{|\SS| \times |\AA|}$. It's defined for $\pi \in \Pi_\text{boltzmann}$ as
 $$
-J(\pi) \defeq \E[s_0 \sim \rho_0]{ \V(s_0) }.
-$$
-To find the optimal policy, we first consider the policy space paramterized by some vector $\t \in \R^d$. For example, a common policy space is to use $\pi_\t(a \mid s) = \NN(a \mid \boldsymbol\mu_\t(s), \mathbf\Sigma_\t(s))$ where $\boldsymbol\mu_\t$ and $\mathbf\Sigma_\t$ are two neural networks parameterized by $\t$. Now we can formalize our problem as
-$$
-\t^* = \argmax_{\t \in \R^d}\; J(\pi_\t).
+\pi(a \mid s) = \frac{\exp(\theta_{s, a})}{\sum_{a' \in \AA} \theta_{s, a'}}.
 $$
 
-[^1]: The proofs for the finite-horizon case are very similar, except with a few additional terms to deal with truncating the trajectories.
+---
 
-[^transition]: Some sources seperate the reward from the state distribution, e.g. $s_{t+1} \sim p(\cdot \mid s_t, a_t)$ and $r_t = r(s_t, a_t, s_{t+1})$ or $r_t = r(s_t, a_t)$. However, these definitions are all equivilent.
+For continuous state and action spaces, a common method is to use neural networks $\boldsymbol\mu_\t$ and $\boldsymbol\sigma_\t$ to predict the mean and covariance of a normal distribution. It's defined for $\pi \in \Pi_\text{neural\_network}$ as
+$$
+\pi(a \mid s) = \mathcal{N}\big(\boldsymbol\mu_\t(s), \text{diag}(\boldsymbol\sigma_\t(s))\big).
+$$
+:::
 
-# How can we sample more efficiently? {#sec-sample-efficiency}
+# Policy Gradient Methods {#sec-reinforce}
 
-Many reinforcement learning algorithms are **on-policy**, meaning that to improve the policy, they use rollouts from the current policy. On the other hand, **off-policy** algorithms can use rollouts from any policy to improve the current policy.
+One of the first policy gradient methods is REINFORCE, which uses the policy gradient theorem
+$$
+\nabla_\t J(\pi_\t) = \E[\tau \sim \pi_\t]{ \SUM \big( R_t(\tau) - b(s_t) \big) \nabla_\t \log \pi_\t(a_t \mid s_t) }.
+$$
+to update $\t$ (where $R_t(\tau)$ is the reward-to-go $\sum_{k=t}^T \gamma^{k - t}r_k$ and $b:\SS\to\R$ is some baseline function). To evaluate this, it takes a single Monte Carlo sample $\tau = (s_0, a_0, r_0, \dots, s_T, a_T, r_T)$ from $\pi_\t$, forming the approximation
+$$
+\widetilde\nabla_\t J(\pi_\t) = \SUM \big( R_t(\tau) - b(s_t) \big) \nabla_\t \log \pi_\t(a_t \mid s_t).
+$$
+While this is a unbiased estimator, it has unbounded variance. Following the analysis in [this blog post by Daniel Seita](https://danieltakeshi.github.io/2017/03/28/going-deeper-into-reinforcement-learning-fundamentals-of-policy-gradients/) we can approximate the variance of the gradient estimate as
+$$
+\cov[\tau \sim \pi_\t]{\widetilde\nabla_\t J(\pi_\t)} \approx \SUM \E[\tau \sim \pi_\t]{ \frac{\nabla_\t \log \pi_\t(a_t \mid s_t)^\top\nabla_\t \log \pi_\t(a_t \mid s_t)}{\pi_\t(a_t \mid s_t)^2} } \E[\tau \sim \pi_\t]{ \enlarge \big( R_t(\tau) - b(s_t) \big)^2 }.
+$$
+While the magnitude of the second term can be reduced using contral variates to set the baseline $b$ as an approximation of the value function, the first term is not so easy to deal with. Importantly, its magnitude scales roughly with $\pi_\t(a_t \mid s_t)^{-2}$, which grows very large for low-probability actions and large trajectories. The only easy way to reduce this variance is to take more Monte Carlo rollouts, which can be prohibativly expensive.
 
-Let's consider a hybrid approach, where we sample from the previous policy (denoted $\pi\old$) to update the new policy (denoted $\pi$).
+The high variance of this updates is the major drawback of REINFORCE since we have no guarantee that the optimizer is moving in the right direction, i.e. it's easy for the expected cumulative discounted rewards to get *worse* during updates due to unlucky Monte Carlo rollouts. This raises the question of is there a different update step we can use that avoids taking bad update steps?
 
-Normally, we optimize $\E{\V(s_0)}$. However, to use information from $\pi\old$ we can equivilently optimize $\E{\V(s_0)} - \E[\pi\old]{\V[\pi\old](s_0)}$. In essence, this is the relative improvement instead of simply the global optimum. It's easy to see that the optimal policy will optimize both equations. However, this expression still includes an expectation over $\pi$, which is inneficient for sampling. This raises the question of can we write this expression in terms of exclusively $\pi\old$?
+# Trust Region Policy Optimization {#sec-trpo}
 
-## Deriving Surrogate Advantage {#sec-surrogate-advantage}
+Taking inspiration from classical optimization algorithms, one approach is to consider a trust region method, where we have some radius within which we "trust" our approximation of the objective function. This would be helpful here, since if we have a high variance step, it would move us far away from our current location, which would be outside of the trust region. However, the difficulty with implementing this comes from the fact that we don't want to have to sample from the new policy to calculate this distance (if we were able to that efficiently, then we wouldn't even need to modify REINFORCE---we could just reject updates if they're too far away). The first natural question to ask is then can we evaluate the performance of the new policy in terms of the old policy?
 
-In policy gradient algorithms, we optimize $\pi_\t$ using $\nabla_\t J(\pi_\t)$. For example, the REINFORCE algorithm uses the update step[^policy-gradient]
-$$
-\begin{align*}
-\t^{(k + 1)} &\gets \t^{(k)} - \alpha\left[\nabla_\t J(\pi_{\t})\right]_{\t = \t^{(k)}} \\
-&\gets \t^{(k)} - \alpha \E{ \sum_{t=0}^\infty \left( \sum_{t'=t}^\infty \gamma^{t'}r_t \right) \left[\nabla_\t \log \pi_{\t}(a_t \mid s_t)\right]_{\t = \t^{(k)}} }.
-\end{align*}
-$$
-However, tuning the step size $\alpha$ can be very difficult, since if out Monte Carlo estimate of the gradient is incorrect, then we can move a long distance in the wrong direction. One way to remedy this is to use a different optimization method. Gradient descent is what's called a line search method, while trust region methods are an alternative paradigm that take smaller, well verified steps.
+This is the main idea of **trust region policy optimization** (TRPO). All of the following derivations, starting with the surrogate advantage objective function going to the Taylor approximation of the Hessian will all come down to this core idea.
 
-Trust region policy optimization (TRPO) uses the update step
-$$
-\begin{align*}
-\t^{(k + 1)} \gets \argmax_{\t^{(k + 1)} \in \R^d}\; & \L_{\pi_{\t^{(k)}}}(\pi_{\t^{(k + 1)}}) \\
-\text{s.t. } & \sqrt{\E[s \sim \rho_\pi]{ \enlarge \KL\big(\pi_{\t^{(k+1)}}(\cdot \mid s) \;\big\|\; \pi_{\t^{(k)}}(\cdot \mid s)\big) }} \leq \delta
-\end{align*}
-$$
-Ignoring the notation and technical details, due to something called the monotone convergence theorem (see @Schulman_2017 for a full proof), this update step always obeys $J(\pi_{\t^{(k + 1)}}) \geq J(\pi_{\t^{(k)}})$.
+## Deriving the Surrogate Advantage {#sec-surrogate-advantage}
 
-[^policy-gradient]: This result follows from the policy gradient theorem. For a description of the REINFORCE algorithm and why it works, I recomend [@Seita_2017; @Weng_2018].
+Consider an update moving from policy $\pi\old$ to policy $\pi$. If we want to ensure the optimizer takes a good step, we need to evaluate $J(\pi)$ and check that it's greater than $J(\pi\old)$. However, this is exceedingly expensive, which motivates the question of can we evaluate the performance of $\pi$ using only $\pi\old$? To do this, we'll define a new objective function called the **surrogate advantage**.
 
-### **Step 1:** Expected returns $J(\pi)$ vs. the performance difference $\mathcal{L}(\pi)$
+Starting with the expected cumulative discounted rewards $J(\pi)$, we can replace $r_t$ with $\A[\pi\old](s_t, a_t)$:
+$$
+\begin{alignat*}{2}
+J(\pi) &= \E[\start]{ \V(s_0) } \\
+&= \E[\pi]{ \SUM \gamma^t r_t } && \text{(definition of $\V$)} \\
+&= \E[\pi]{ \SUM \gamma^t\big( r_t + \focus{\V[\pi\old](s_{t+1}) - \V[\pi\old](s_{t+1})} \big) } \\
+&= \E[\pi]{ \SUM \gamma^t\big( \focus{\Q[\pi\old](s_t, a_t)} - \V[\pi\old](s_{t+1}) \big) } && \text{(definition of $\Q[\pi\old]$)} \\
+&= \E[\pi]{ \SUM \gamma^t \big(\focus{\A[\pi\old](s_t, a_t) + \V[\pi\old](s_t)} - \V[\pi\old](s_{t+1})\big) } \qquad && \text{(definition of $\A[\pi\old]$)} \\
+&= \E[\pi]{ \SUM \gamma^t \A[\pi\old](s_t, a_t) } + \focus{\E[\start]{ \V[\pi\old](s_0) }} && \text{(telescoping sum)} \\
+&= \E[\pi]{ \SUM \gamma^t \A[\pi\old](s_t, a_t) } + J(\pi\old).
+\end{alignat*}
+$$
+This result is known as the **performance difference lemma**:
+$$
+\LL(\pi, \pi\old) \defeq J(\pi) - J(\pi\old) = \E[\pi]{ \SUM \gamma^t\A[\pi\old](s_t, a_t) }.
+$$
+Since $J(\pi\old)$ is independent of $\pi$, we can optimize $\LL(\pi, \pi\old)$ instead of $J(\pi)$ to find the optimal policy. Importantly, we see that we only need to evaluate the advantage of $\pi\old$ instead of $\pi$!
 
-However, this can be difficult to do using standard methods due to [TODO]. So instead, consider an iterative update based on a prior policy $\pi\old$, and consider the performance difference
+However, to calculate the expectation we still need Monte Carlo rollouts from $\pi$ which is inefficient. To manipulate the expectation, it's easier to consider individual states as opposed to entire trajectories. To this end we introduce the state distribution
 $$
-\L(\pi) \defeq J(\pi) - J(\pi\old) = \E[\start]{\V(s_0)} - \E[\start]{\V[\pi\old](s_0)}.
+\rho_\pi(s) \defeq (1 - \gamma) \SUM \gamma^t \Pr(s_t = s \mid s_0 \sim \rho_0, \pi)
 $$
-Note that since $\pi\old$ is independent of $\pi$, optimizing $J(\pi)$ is equivilent to optimizing $\L(\pi)$. This hasn't gained us anything mathematically, however expressing the objective in this form lets us more easily express everything in terms of $\pi\old$.
+and rewrite the performance difference[^state-distribution] as
+$$
+\LL(\pi, \pi\old) = \E[s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)]{ \A[\pi\old](s, a) }.
+$$
+In this formulation, there are two distributions being sampled from in the expectation: $\rho_\pi$ and $\pi(\cdot \mid s)$.
 
-### **Step 2:** The Performance Difference Lemma
+[^state-distribution]: If it's not clear why this is possible, there are only two operations happening here: we introduce and distribute the fraction $\frac{1 - \gamma}{1 - \gamma}$, and we move the policy from the expectation to the probability term in $\rho_\pi$. The logic is similar to that of the policy gradient theorem proof presented in [Sutton & Barto chapter 13](http://incompleteideas.net/book/the-book-2nd.html).
 
-Recall that the advantage function is defined in terms of the value function $\V$ and the action-value function $\Q$ as
+Of these, $\pi(\cdot \mid s)$ has a closed-form, e.g. a neural network. Forward passes in neural networks are efficient to compute, so we can use importance sampling to sample from $\pi\old(\cdot \mid s)$ instead[^importance-sampling]:
 $$
-\A(s, a) \defeq \Q(s, a) - \V(s).
-$$
-
-A natural question to ask is whether we can express a reward $r$ in terms of the value function $\V$ of some policy $\pi$. Using linearity of expectation and the Bellman equations we can do this by introducing a factor of the advantage function $\A$:
-$$
-\begin{align*}
-\E[\transition]{ r } &= \E[\transition]{ r + \gamma \V(s') - \gamma \V(s') } \\
-&= \underbrace{\E[\transition]{ r + \gamma \V(s') }}_{\Q(s,a)} - \gamma \E[\transition]{ \V(s') } \\
-&= \A(s,a) + \V(s) - \gamma\E[\transition]{ \V(s') }.
-\end{align*}
-$$
-Substituting this identity into the value function yields
-$$
-\begin{align*}
-\E[\start]{ \V(s_0) } &= \E{ \sum_{t = 0}^{\infty} \gamma^tr_t } \\
-&= \E{ \sum_{t = 0}^{\infty}\gamma^t\A[\pi\old](s_t,a_t) + \gamma^t\V[\pi\old](s_t) - \gamma^{t+1}\E[s_{t+1}\sim p(\cdot|s_t,a_t)]{ \V[\pi\old](s_{t+1}) } } \\
-&= \E{ \sum_{t = 0}^{\infty}\gamma^t \A[\pi\old](s_t,a_t) + \sum_{t = 0}^{\infty} \gamma^t\V[\pi\old](s_t) - \sum_{t = 1}^{\infty} \gamma^t\V[\pi\old](s_t)  } \\
-&= \E[\start]{ \V[\pi\old](s_0) } + \E[\start]{ \sum_{t = 0}^{\infty} \gamma^t\A[\pi\old](s_t,a_t) }.
-\end{align*}
-$$
-Rearranging terms shows that
-$$
-\L(\pi) = \E{ \sum_{t=0}^\infty \gamma^t\A[\pi\old](s_t,a_t) }.
-$$
-This is an interesting result since it allows us to access the performance of $\pi\old$ in terms of $\pi$! However, it doesn't help with sampling efficiently from $\pi\old$ yet.
-
-### **Step 3:** Rewriting using the state distribution
-
-An easy answer would just be to sample $\pi\old$ instead of $\pi$. However, there's no guarantee on how good of an approximation this would be! However, there is a way forward if we use the state distribution $\rho_\pi$ instead. Remember that the state distribution is defined as
-$$
-\rho_\pi(s) \defeq (1 - \gamma) \sum_{t=0}^\infty \gamma^t \Pr(s_t = s \mid s_0 \sim \rho_0, \pi).
-$$
-Using this distribution, we can rewrite the performance difference[^3] as
-$$
-\L(\pi) = \E[s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)]{ \A[\pi\old](s, a) }.
+\LL(\pi, \pi\old) = \E[s \sim \rho_\pi \\ \focus{a \sim \pi\old(\cdot \mid s)}]{ \focus{\frac{\pi(a \mid s)}{\pi\old(a \mid s)}} \A[\pi\old](s,a) }.
 $$
 
-[^3]: If it's not clear why this is possible, there are only two operations happening here: we introduce and distribute the fraction $\frac{1 - \gamma}{1 - \gamma}$, and we move the policy from the expectation to the probability term in $\rho_\pi$. The logic is similar to that of the policy gradient theorem proof presented in [@Seita_2017].
+[^importance-sampling]: We assume that $\pi$ and $\pi\old$ are both well-behaved, i.e. $\pi(a \mid s) \neq 0$ for all $a \in \AA$ and $s \in \SS$.
 
-### **Step 4:** Sampling from $\pi(\cdot \mid s)$ using $\pi_\text{old}(\cdot \mid s)$
+Unfortunately, $\rho_\pi$ has no closed-form solution meaning we can't use importance sampling to sample from $\rho_{\pi\old}$.
 
-Importantly, $\pi(\cdot \mid s)$ has a closed-form, e.g. a neural network. We can use this to implement importance sampling to sample from $\pi\old(\cdot \mid s)$ instead:
+If we consider how policy gradient methods work, they generally take iterative steps leading to a sequence of policies $\{\pi_1, \pi_2, \dots, \pi_k\}$. Intuitively, each consecutive policy should be decently similar, i.e. $\pi \approx \pi\old$. If we make that assumption, then it follows that $\rho_\pi \approx \rho_{\pi\old}$. If we replace $\rho_\pi$ with $\rho_{\pi\old}$ in the performance difference function, then we get the surrogate advantage objective
 $$
-\L(\pi) = \E[s \sim \rho_\pi \\ a \sim \pi\old(\cdot \mid s)]{ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} \A[\pi\old](s,a) }.
+\wLL(\pi, \pi\old) = \E[\focus{s \sim \rho_{\pi\old}} \\ a \sim \pi\old(\cdot \mid s)]{ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} \A[\pi\old](s,a) }.
+$$
+In the surrogate advantage, our expectation is over exclusively $\pi\old$, meaning we can reuse Monte Carlo rollouts of $\pi\old$ without simulating $\pi$. Additionally, so long as $\pi \approx \pi\old$ we know that $J(\pi) \approx \wLL(\pi, \pi\old) + J(\pi\old)$, meaning that we can estimate $J(\pi)$ while only using $\pi\old$. This is exactly what we wanted from our new objective!
+
+## The Monotone Convergence Guarantee
+
+From @sec-surrogate-advantage, we know that $w\LL(\pi, \pi\old) \approx \LL(\pi, \pi\old)$ only if $\pi \approx \pi\old$, so we need some way to formalize when this is true. The standard way to measure the similarity of probability distributions is the Kullback-Leibler divergence
+$$
+\DKL{\pi\old(\cdot \mid s)}{\pi(\cdot \mid s)} \defeq \E[a \sim \pi\old(\cdot \mid s)]{\log\left(\frac{\pi\old(a \mid s)}{\pi(a \mid s)}\right)}.
 $$
 
-### **Step 5:** Sampling from $\rho_\pi$ using $\rho_{\pi_\text{old}}$
+However, the policy can change for each state, so we need a way to aggregate the KL divergence into a single measurement. Mathematically, it's easiest to use the worst-case divergence
+$$
+\DKL[\max]{\pi\old}{\pi} = \max_{s \in \SS} \DKL{\pi\old(\cdot \mid s)}{\pi(\cdot \mid s)}.
+$$
+Intuitively, this states that even if $\pi$ and $\pi\old$ normally take the same action, if there's even one state where they differ that will be reflected in $\DKL[\max]{\pi\old}{\pi}$. This makes sense for reinforcement learning, where there's often a few critical states (e.g. a cliff that the agent could fall off of), and we may not be sure which states those are.
 
-Unfortanantly, $\rho_\pi$ has no closed-form solution, so we can't use importance sampling since this requires being able to calculate (or at least accurately estimate) the probability ratio. This is where the main jump of the surrogate objective function is: what if we just approximate $\rho_\pi$ with $\rho_{\pi\old}$? This gives rise to the surrogate avantage function
-$$
-\L_{\pi\old}(\pi) \defeq \E[s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)]{ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} \A[\pi\old](s,a) }
-$$
-as an approximation for the performance difference $\L(\pi)$. The hope is that if the approximation $\rho_\pi \approx \rho_{\pi\old}$ is good, then the approximation $\L(\pi) \approx \L_{\pi\old}(\pi)$ will also be good.
-
-## Surrogate Advantage vs. Performance Difference
-
-In trust region optimization algorithms (see @Nocedal_Wright_2006 chapter 4 for a summary) we take a step so long as we are confident that the step is accurate.
-
-We know that
-$$
-\argmax_{\pi \in \Pi}\; \E{ \V(s_0) } = \argmax_{\pi \in \Pi}\; \underbrace{\E{ \V(s_0) } - \E[\pi\old]{ \V[\pi\old](s_0) }}_{\L(\pi)},
-$$
-which raises the question of how close $\L_{\pi\old}(\pi)$ is to $\L(\pi)$. Luckily for us, @Schulman_2017 derives a monotonic improvement guarantee which states that so long as 
-$$
-\E[s \sim \rho_{\pi\old}]{ \enlarge \KL\big(\pi(\cdot \mid s) \;\|\; \pi\old(\cdot \mid s)\big) } \leq \delta
-$$
-a trust region optimization step will always improve our policy[^2]. While there is an expression for $\delta$, it's difficult to calculate empirically, so it's generally tuned as a hyperparameter.
+Using the worst-case KL divergence, [the paper *Trust Region Policy Optimization* by Schulman et. al.](https://arxiv.org/abs/1502.05477) proves the monotone convergence theorem:
 
 ::: {.callout-note}
-## Monotone Improvement Theorem
-The update step
+### Monotone Convergence Theorem
+::: {#thm-monotone-convergence}
+## Monotone Convergence
+For two policies $\pi, \pi\old \in \Pi$ we have that
+$$
+\LL(\pi, \pi\old) \geq \wLL(\pi, \pi\old) - C\DKL[\max]{\pi\old}{\pi},
+$$
+where $C$ is a function of the discount factor $\gamma$ and the maximum advantage of $\pi\old$.
+:::
+:::
+
+This means that if we use the update step
+$$
+\pi\new \gets \argmax_{\pi \in \Pi}\; \wLL(\pi, \pi\old) - C\DKL[\max]{\pi\old}{\pi}
+$$ {#eq-penalized-update}
+we will always converge to the optimal policy since @eq-penalized-update is bounded by zero when $\pi=\pi\old$, i.e. it must be true that $J(\pi_0) \leq J(\pi_1) \leq \cdots \leq J(\pi_k)$.
+
+This theorem clearly fixes the issue of knowing when $\pi \approx \pi\old$, since the $C\DKL[\max]{\pi\old}{\pi}$ acts as a penalty parameter, reducing our improvement as we get further from $\pi\old$. However, this also fixes the original policy gradient problem of high variance! Since we now control how far away $\pi$ and $\pi\old$ are, we can be confident that our step is a good one!
+
+This is why the penalty term is the worst-case KL divergence, since it measures the distance in policy space and not the parameter space. If we were to instead use a parameter space measure like the $\ell_2$ norm $\frac{1}{2}\|\t - \t\old\|^2$, the resulting policies could still be different since they're non-linear in $\t$. In essence, $\t \approx \t\old$ does not imply that $\pi \approx \pi\old$, which was causing the high variance of the policy gradient updates!
+
+However, while this update is theoretically sound it's difficult to implement. The first issue is that since the $C$ parameter depends on the maximum advantage of $\pi\old$, it's intractable to calculate for large or unbounded state spaces. Ideally, we could set $C$ as a global hyperparameter, but this proves to be difficult. Intuitively, this is because $C$ directly affects both the divergence term and the surrogate advantage term. For one update, a value of $C = 10^{-3}$ could be large relative to the surrogate advantage, and for another it could be small, even if the worst-case divergence is the same.
+
+In practice, we rewrite @eq-penalized-update as an equivalent [dual constrained optimization problem](https://en.wikipedia.org/wiki/Duality_(optimization))
+$$
+\pi\new \gets \argmax_{\pi \in \Pi}\; \wLL(\pi, \pi\old) \text{ such that }\DKL[\max]{\pi\old}{\pi} \leq \delta,
+$$ {#eq-constrained-update}
+which replaces the $C$ parameter with a $\delta$ parameter that also depends on $\gamma$ and the maximum advantage. However, because the $\delta$ parameter is exclusively in the constraint it's easier to set as a global hyperparameter. Intuitively, since it doesn't impact the surrogate advantage it will always directly bound the worst-case divergence the same, no matter where in policy space you are.
+
+![A visualization of the monotone convergence theorem. Note how each surrogate $\wLL(\pi, \pi_i) + J(\pi_i) - C\DKL[\max]{\pi_i}{\pi}$ is tangent to the true rewards $J(\pi)$ at the old policy $\pi_i$, i.e. it's a local approximation. The $C\DKL[\max]{\pi_i}{\pi}$ acts as a penalty term decreasing the rewards the further out the approximation is. Due to the penalty, the inequality holds over the entire function (though I've only plotted a subset of the domain here to make the diagram clearer).](penalized.svg){#fig-penalized-update .lightbox}
+
+![A visualization of the monotone convergence theorem using the constrained update formulation. Note how the surrogate $\wLL(\pi, \pi_i) + J(\pi_i)$ is not longer strictly below $J(\pi)$. However, at the optimal point within the trust region, this bound holds and gives an equivalent policy as @fig-penalized-update.](constrained.svg){#fig-constrained-update .lightbox}
+
+## Quadratic Trust Region Optimization
+
+Unfortunately, it's not clear how to actually solve for the update in @eq-constrained-update. Theoretically, there are closed form solutions for constrained optimization problems with linear objectives and quadratic constraints, so if we approximate $\wLL(\pi, \pi\old)$ with a linear function and $\DKL[\max]{\pi\old}{\pi}$ with a quadratic function we can use the closed-form update. Additionally, at each update we've calculated and simulated $\pi\old$, so we have access to Monte Carlo rollouts and an advantage estimate. Since we're only considering policies $\pi$ that are close to $\pi\old$ due to the worst-case divergence constraint, we can use Taylor series approximations to estimate $\wLL(\pi, \pi\old)$ and $\DKL[\max]{\pi\old}{\pi}$.
+
+### Approximating $\DKL[\max]{\pi\old}{\pi}$
+
+Since $\DKL[\max]{\pi\old}{\pi}$ is a maximum over the state space, we need to enumerate every element which is intractable for large or unbounded state spaces. In policy gradient methods, we generally interact with the environment using Monte Carlo rollouts, so let's instead consider the expected divergence
+$$
+\overline\DKL{\pi\old}{\pi} \defeq \E[s \sim \rho_{\pi\old}]{\DKL{\pi\old(\cdot \mid s)}{\pi(\cdot \mid s)}}.
+$$
+If we approximate $\DKL[\max]{\pi\old}{\pi}$ with $\overline\DKL{\pi\old}{\pi}$ then it's possible that this misses some key states with high divergence, but overall it will accomplish the same result of stopping the new policy from straying too far from the old policy.
+
+The second-order Taylor approximation of $\overline\DKL{\pi\old}{\pi}$ centered at $\pi=\pi\old$ is
 $$
 \begin{align*}
-\t^{(k + 1)} \gets \argmax_{\t^{(k + 1)} \in \R^d}\; & \L_{\pi_{\t^{(k)}}}(\pi_{\t^{(k + 1)}}) \\
-\text{s.t. } & \sqrt{\E[s \sim \rho_\pi]{ \enlarge \KL\big(\pi_{\t^{(k+1)}}(\cdot \mid s) \;\big\|\; \pi_{\t^{(k)}}(\cdot \mid s)\big) }} \leq \delta,
+\overline\DKL{\pi\old}{\pi} &\approx \left[\overline\DKL{\pi\old}{\pi}\right]_{\pi=\pi\old} \\
+&\quad +\; (\t - \t\old)^\top \nabla_\t\left[\overline\DKL{\pi\old}{\pi}\right]_{\pi = \pi\old} \\
+&\quad +\; \frac{1}{2}(\t - \t\old)^\top\nabla_\t^2\left[\overline\DKL{\pi\old}{\pi}\right]_{\pi = \pi\old}(\t - \t\old)
 \end{align*}
 $$
-will always improve the expectend cumulative discounted rewards, i.e. $J(\pi_{\t^{(k+1)}}) \geq J(\pi_{\t^{(k)}})$. See [@Schulman_2017] for a proof of the theorem.
+It's clear that $\overline\DKL{\pi\old}{\pi\old} = 0$, which drops out. Additionally, some algebra shows that $\nabla_\t\left[\overline\DKL{\pi\old}{\pi}\right]_{\pi=\pi\old} = \mathbf 0$, causing the first-order term to drop out as well. Thus, the second-order approximation is completely determined by the Hessian matrix
+$$
+\H = \nabla_\t^2\left[\overline\DKL{\pi\old}{\pi}\right]_{\pi=\pi\old} = -\E[s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)]{\nabla_\t^2 \log \pi(a \mid s)}.
+$$
+Thus, our final approximation is
+$$
+\overline\DKL{\pi\old}{\pi} \approx \frac{1}{2}(\t - \t\old)^\top \H (\t - \t\old).
+$$ {#eq-second-order-divergence}
+
+### Approximating $\wLL(\pi, \pi\old)$
+
+The first-order Taylor expansion centered at $\pi=\pi\old$ (ignoring the constant term since it doesn't afffect optimization) is
+$$
+\begin{align*}
+\g &= \nabla_\t \wLL(\pi, \pi\old) \\
+&= \E[s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)]{\nabla_\t \frac{\pi(a \mid s)}{\pi\old(a \mid s)} \A[\pi\old](s, a)} \\
+&= \E[s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)]{\A[\pi\old](s, a) \nabla_\t \log \pi(a \mid s)}.
+\end{align*}
+$$
+This is actually the same as $\nabla_\t J(\pi\old)$ from the policy gradient theorem (see [Sutton & Barto, chapter 13](http://incompleteideas.net/book/the-book-2nd.html)), providing further justification that $\wLL(\pi, \pi\old)$ is a good stand-in for $J(\pi)$. Our final estimate is then
+$$
+\wLL(\pi, \pi\old) \approx (\t - \t\old)^\top\g.
+$$ {#eq-first-order-surrogate-advantage}
+
+### Solving the Update Step
+
+::: {.callout-note}
+### How do we efficiently calculate the inverse of the Hessian?
+Calculating $\H^{-1}\g$ is normally $\OO(d^3)$ time. Instead, since the Hessian is the expected [Fisher information matrix](https://en.wikipedia.org/wiki/Fisher_information) of the policy we can implement Hessian products as the operator
+$$
+\H\x = \nabla_\t\!\left[ \left(\nabla_\t \overline\DKL{\pi\old}{\pi}\right)^\top\x \right].
+$$
+Using a [Krylov subspace method](https://en.wikipedia.org/wiki/Krylov_subspace) like [conjugate gradient](https://en.wikipedia.org/wiki/Conjugate_gradient_method), we can use this to calculate $\H^{-1}\g$ with a time complexity of roughly $\OO\!\left(d\sqrt{\kappa(\H)}\right)$. Importantly, this only requires access to $\nabla_\t \log \pi(a \mid s)$, which is easy to calculate for even complex policies using automatic differentiation.
 :::
 
-[^2]: The math here is quite a bit more technical, so I've skipped over it here. Long story short, they define a notion of "coupled" policies $\pi$ and $\pi'$ that are identical with high probability, and then use their limited disagreements to bound the error.
+Using the approximations @eq-first-order-surrogate-advantage and @eq-second-order-divergence, we form the update step
+$$
+\t\new \gets \argmax_{\t \in \R^d}\, \g^\top(\t - \t\old) \text{ such that }\frac{1}{2}(\t - \t\old)^\top\H(\t - \t\old) \leq \delta
+$$
+which has the closed-form solution
+$$
+\t\new \gets \t\old + \left(\sqrt{\frac{2 \delta}{\g^\top\H^{-1}\g}}\right) \H^{-1}\g
+$$
+Interestingly, this has the form of a [natural gradient](https://andrewcharlesjones.github.io/journal/natural-gradients.html) update, which is similar to a standard gradient descent update but accounts for the curvature of the policy space. However, since we approximated $\overline\DKL{\pi\old}{\pi}$, it's possible that $\t\new$ may not satisfy the constraint. Luckily this is simple to fix with a backtracking line search (see [Nocedal & Wright chapter 3](https://www.math.uci.edu/~qnie/Publications/NumericalOptimization.pdf)), where we introduce some $\alpha \in (0, 1]$ and choose the largest $\alpha$ such that
+$$
+\t\new \gets \t\old + \alpha\!\left(\sqrt{\frac{2 \delta}{\g^\top\H^{-1}\g}}\right) \H^{-1}\g
+$$ {#eq-backtracking-update}
+satisfies the expected divergence constraint. Now we have an update that we can efficiently calculate that approximately satisfies @thm-monotone-convergence!
 
-<!-- # Principle Policy Optimization
+## What Have we Accomplished?
 
-::: {#fig-learning-rate}
-::: {#div-learning-rate .column-body-outset}
-``` {=html}
-<script src="learning_rate_schedule.js"></script>
-```
-:::
+We now have @eq-backtracking-update which we can solve efficiently by only evaluating and sampling from $\pi\old$. This update is guaranteed to satisfy the expected divergence constraint in @eq-constrained-update due to the backtracking line search, but uses a first-order approximation (@eq-first-order-surrogate-advantage) of the surrogate advantage. Assuming that this approximation is good enough, the monotone convergence theorem (@thm-monotone-convergence) guarantees that this update will converge, fixing our issue with vanilla policy gradients!
 
-The current learning rate schedule.
-:::
+# Proximal Policy Optimization {#sec-ppo}
 
-This is some other text!
+While TRPO has nice theoretical guarantees, the complicated update step means it can be slow in practice. Proximal policy optimization (PPO) fixes this by replacing the divergence constraint in @eq-constrained-update with a much simpler clipping process.
 
-::: {#fig-gradient-descent}
-::: {#div-gradient-descent}
-```{=html}
-<script src="gradient_descent.js"></script>
-```
-:::
+It minimizes the objective
+$$
+\LL_\text{PPO}(\t) = \E[t]{\A[\pi\old](s, a)\min\left\{\frac{\pi(a \mid s)}{\pi\old(a \mid s)}, \text{clip}\left(\frac{\pi(a \mid s)}{\pi\old(a \mid s)}, 1 - \varepsilon, 1 + \varepsilon\right)\right\}}
+$$
+directly with a first order optimizer like stochastic gradient descent or [ADAM](https://arxiv.org/abs/1412.6980).
 
-The gradient descent animation.
-:::
+# Conclusion
 
-# Other stuff
-text -->
+| Algorithm | Update Rule        | Stability                      | Optimizer          |
+|-----------|--------------------|--------------------------------|--------------------|
+| REINFORCE (@sec-reinforce) | Monte Carlo        | Low stability; high variance   | SGD                |
+| TRPO (@sec-trpo)      | Constrained KL     | Trust region ensures stability | Conjugate gradient |
+| PPO (@sec-ppo)       | Clipped importance | Approximate trust region       | ADAM               |
