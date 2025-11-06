@@ -4,6 +4,7 @@ description: "A few quick animations illustrating some of the pitfalls of gradie
 author: "Evan Gebo"
 date: "2025-08-23"
 categories: [machine learning]
+draft: true
 ---
 
 ::: {.hidden}

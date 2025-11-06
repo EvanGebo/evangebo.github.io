@@ -122,7 +122,6 @@ function katexFO(parent, { x=0, y=0, tex="", anchor="start", fontSize=14 } = {})
     fo.attr("width", width).attr("height", height);
     const dx = (anchor === "middle") ? -width/2 : (anchor === "end") ? -width : 0;
     const dy = -height/2;
-    console.log(x, y, width, height, dx, dy);
     fo.attr("transform", `translate(${dx}, ${dy})`);
     return fo;
 }

@@ -1,3 +1,4 @@
+{
 const DIV = "#div-boltzmann-distribution";
 
 const { svg, w, h, mh, mt, mb } = window.UTILS.getSVG(DIV, 30, 1, 7, false);
@@ -101,7 +102,7 @@ gQAxis.selectAll(".tick")
     .each(function(d) {
         const tick = d3.select(this);
         tick.selectAll("text").remove();
-        window.UTILS.katexFO(tick, { x: 0, y: 15, tex: d, anchor: "middle", fontSize: 10 });
+        window.UTILS.katexFO(tick, { x: 0, y: 15, tex: d, anchor: "middle", fontSize: 12 });
     });
 
 const gPiAxis = gPi.append("g")
@@ -111,7 +112,7 @@ gPiAxis.selectAll(".tick")
     .each(function(d) {
         const tick = d3.select(this);
         tick.selectAll("text").remove();
-        window.UTILS.katexFO(tick, { x: 0, y: 15, tex: d, anchor: "middle", fontSize: 10 });
+        window.UTILS.katexFO(tick, { x: 0, y: 15, tex: d, anchor: "middle", fontSize: 12 });
     });
 
 // Create a slider for scaling the Q-values
@@ -128,12 +129,14 @@ labelRow.style.marginBottom = "4px";
 labelRow.style.fontSize = "15px";
 
 const sliderLabel = document.createElement("span");
-sliderLabel.textContent = "Alpha: ";
+sliderLabel.textContent = "Alpha: 10";
 sliderLabel.style.marginRight = "4px";
 
-const sliderValue = document.createElement("span");
+const sliderValue = document.createElement("sup");
 sliderValue.textContent = "1.00";
 sliderValue.style.fontWeight = "bold";
+sliderValue.style.marginLeft = "-4px";
+sliderValue.style.verticalAlign = "middle";
 
 labelRow.appendChild(sliderLabel);
 labelRow.appendChild(sliderValue);
@@ -142,18 +145,19 @@ sliderContainer.appendChild(labelRow);
 // Create slider row
 const slider = document.createElement("input");
 slider.type = "range";
-slider.min = "0.02";
-slider.max = "9.99";
-slider.value = "1";
+slider.min = "-1";
+slider.max = "3";
+slider.value = "0";
 slider.step = "0.01";
 slider.style.width = "80%";
 
 slider.oninput = function () {
     sliderValue.textContent = slider.value;
-    alpha = parseFloat(slider.value);
+    alpha = 10 ** parseFloat(slider.value);
     sliderValue.textContent = parseFloat(slider.value).toFixed(2);
     updatePiBars();
 };
 
 sliderContainer.appendChild(slider);
 document.querySelector(DIV).appendChild(sliderContainer);
+}

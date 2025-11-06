@@ -7,7 +7,10 @@ categories: [reinforcement learning, machine learning]
 include-after-body:
  - text: |
     <script src="/js/utils.js" defer></script>
+    <script src="/js/gridworld.js" defer></script>
     <script src="boltzmann-distribution.js" defer></script>
+    <script src="demo.js" defer></script>
+draft: true
 ---
 
 ::: {.hidden}
@@ -43,6 +46,7 @@ $$
 
 \newcommand{\V}[2][\pi]{\widetilde{V}^{#1}(#2)}
 \newcommand{\Q}[3][\pi]{\widetilde{Q}^{#1}(#2, #3)}
+\newcommand{\Qest}[4][\pi]{\widetilde{Q}^{#1}_{#2}(#3, #4)}
 \newcommand{\A}[3][\pi]{\widetilde{A}^{#1}(#2, #3)}
 \newcommand{\Z}[2][\pi]{\widetilde{Z}^{#1}(#2)}
 \newcommand{\J}[1]{\widetilde{J}(#1)}
@@ -74,6 +78,12 @@ $$
 : Common notation. {#tbl-notation}
 
 In classic reinforcement learning we learn a deterministic policy. This is theoretically optimal, but it doesn't always work well in practice. For one, our environment often isn't exactly a Markov Decision Process, meaning the Markov assumption may not hold in practice. Additionally, the higher exploration of stochastic policies can make training faster, and also be more robust in unknown environments. So how can we modify the "hard" reinforcement learning problem of learning an optimal deterministic policy to the "soft" reinforcement learning problem of learnin an optimal stochastic policy?
+
+::: {#fig-demo}
+::: {#div-demo .column-body-outset}
+:::
+Consider the simple gridworld where the agent randomly starts at any of the blue start cells, and must reach any of the yellow goal cells.
+:::
 
 # Stochastic Policies and Entropy {#sec-entropy}
 
@@ -325,85 +335,43 @@ then $\Q[\pi\old]{s}{a} \leq \Q[\pi\new]{s}{a}$ for all $a \in \AA$.
 
 # Soft Policy Evaluation {#sec-soft-policy-evaluation}
 
-# Soft Policy Iteration {#sec-soft-policy-iteration}
-
-Now we have the tools needed to define the full soft policy iteration algorithm:
-    1. Run one step of soft policy improvement (@sec-soft-policy-extraction)
-
-We consider the $\ell_\infty$ norm on the action-value functions defined by $\| \widetilde{Q}^{\pi\new} - \widetilde{Q}^{\pi\old} \|_\infty \defeq \max_{s \in \SS, a \in \AA} | \Q[\pi\new]{s}{a} - \Q[\pi\old]{s}{a} |$. Then
-
-$$
-\newcommand{\norm}{\|\widetilde{Q}^{\pi\new} - \widetilde{Q}^{\pi\old}\|_\infty}
-\begin{align*}
-\V[\pi]{s} &= \E[\action]{\Q{s}{a} - \alpha\log\pi(a \mid s)} \\
-&= \E[\action]{\Q{s}{a} - \alpha\Q{s}{a}} + \log\Z{s} \\
-&= (1 - \alpha)\E[\action]{\Q{s}{a}} + \log \int_\AA \exp \Q{s}{a} \; \mathrm{d}a
-\end{align*}
-$$
-
-Now we see that
-
+Let's assume we have a policy $\pi_k$ which is an optimal Boltzmann distribution from @eq-soft-policy-extraction. Then using a one step update with the Bellman equation, we see that the update simplifies to
 $$
 \begin{align*}
-\log \int_\AA \exp \Q{s}{a} \;\mathrm{d}a &\leq \log \int_\AA \exp\!\left(\Q[\pi\old]{s}{a} + \norm\right) \\
-&= \log\left( \exp \norm \int_\AA \exp \Q{s}{a} \; \mathrm{d}a \right) \\
-&= \norm + \log\int_\AA\exp\Q{s}{a}\;\mathrm{d}a.
+\Qest[]{k+1}{s}{a} &= \E[s', r \sim p(\cdot, \cdot \mid s, a)]{r + \gamma\E[a' \sim \pi_k(\cdot \mid s')]{ \Qest[]{k}{s'}{a'} - \alpha\log\pi_k(a' \mid s') }} \\
+&= \E[s', r \sim p(\cdot, \cdot \mid s, a)]{r + \gamma\E[a' \sim \pi_k(\cdot \mid s')]{ \Qest[]{k}{s'}{a'} - \Qest[]{k}{s'}{a'} + \alpha\log\Z[\pi_k]{s'} }} \\
+&= \E[s', r \sim p(\cdot, \cdot \mid s, a)]{r + \gamma\alpha\log\Z[\pi_k]{s'}}.
 \end{align*}
 $$
+From @thm-soft-policy-improvement, we know that in the exact case, this step guarantees improvement, so all that's left to show is that only doing a one-step evaluation will converge.
 
-## Soft Policy Improvement
+# Extension to Continuous Spaces
 
-In the hard setting, we relied on the hard policy improvement theorem to prove that our policy update improved our objective.
-
-::: {.callout-note}
-## Hard Policy Improvement Theorem ([Sutton & Barto §4.1](http://incompleteideas.net/book/the-book-2nd.html))
-For two policies $\pi\new$ and $\pi\old$, if
+Instead of updating with
 
 $$
-V^{\pi\old}(s) \leq \E[{\action[\pi\new]}]{Q^{\pi\old}(s, a)}
+\pi\new(a \mid s) = \frac{1}{\Z[\pi\old]{s}}\exp\left( \frac{1}{\alpha}\Q[\pi\old]{s}{a} \right),
 $$
 
-for all $s \in \SS$, then $J(\pi\new) \geq J(\pi\old)$.
-:::
-
-Considering the update in @sec-soft-policy-iteration, we have a simple optimization bound:
+let's update using
 
 $$
-\KL{\pi\new(\cdot \mid s)}{\pi\new\opt(\cdot \mid s)} \leq \KL{\pi\old(\cdot \mid s)}{\pi\new\opt(\cdot \mid s)}.
+\pi\new(\cdot \mid s) = \argmax_{\pi \in \Pi}\; \KL{\pi(\cdot \mid s)}{\frac{1}{\Z[\pi\old]{s}}\exp \left( \frac{\Q[\pi\old]{s}{\cdot}}{\alpha} \right)}.
 $$
 
-Since $\pi\new\opt$ is a Boltzmann distribution, we can rewrite the KL divergence between some policy $\pi$ and $\pi\new\opt$ as
+It turns out that this update step is sufficient to still show convergence with the soft policy improvement theorem:
 
 $$
 \begin{align*}
-\KL{\pi(\cdot \mid s)}{\pi\new\opt(\cdot \mid s)} &= \E[\action]{\log \pi(a \mid s) - \log \pi\new\opt(a \mid s)} \\
-&= \E[\action]{\log \pi(a \mid s) - \log\left( \frac{\exp \Q[\pi\old]{s}{a}}{\Z[\pi\old]{s}} \right)} \\
-&= \E[\action]{\log \pi(a \mid s) - \Q[\pi\old]{s}{a}} + \Z[\pi\old]{s}.
+\KL{\pi(a \mid s)}{\frac{1}{\Z[\pi\old]{s}}\exp \left( \frac{\Q[\pi\old]{s}{a}}{\alpha} \right)} &= \E[a \sim \pi(\cdot \mid s)]{ \log\pi(a \mid s) - \log\left(\frac{\exp\left( \frac{1}{\alpha}\Q[\pi\old]{s}{a} \right)}{\Z[\pi\old]{s}}\right) } \\
+&= \E[a \sim \pi(\cdot \mid s)]{ \log \pi(a \mid s) - \frac{1}{\alpha}\Q[\pi\old]{s}{a} } + \log\Z[\pi\old]{s}.
 \end{align*}
 $$
 
-This lets us rewrite the optimization bound as
+Since $\log\Z[\pi\old]{s}$ is independant of the optimization, we can rewrite the optimization bound as
 
 $$
-\E[{\action[\pi\new]}]{\log \pi\new(a \mid s_t) - \Q[\pi\old]{s_t}{a}} \leq \E[{\action[\pi\old]}]{\log \pi\old(a \mid s_t) - \Q[\pi\old]{s_t}{a}}.
+\E[a \sim \pi\new(\cdot \mid s)]{ \log \pi\new(a \mid s) - \frac{1}{\alpha}\Q[\pi\old]{s}{a} } \leq \E[a \sim \pi\old(\cdot \mid s)]{ \log \pi\old(a \mid s) - \frac{1}{\alpha}\Q[\pi\old]{s}{a} }.
 $$
 
-Inverting this inequality and substituting in the soft value function, we see that
-
-$$
-\V[\pi\old]{s_t} \leq \E[{\action[\pi\new]}]{\Q[\pi\old]{s_t}{a} - \log\pi\new(a \mid s_t)}.
-$$
-
-Now using the same unrolling trick in the hard policy improvement theorem, we see that
-
-$$
-\begin{align*}
-\Q[\pi\old]{s_t}{a_t} &= \E[s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)]{r_t + \gamma\V[\pi\old](s_{t+1})} \\
-&\leq \E[s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)]{r_t + \gamma\E[a_{t+1} \sim \pi(\cdot \mid s_t)]{\Q[\pi\old]{s_{t+1}}{a_{t+1}} - \log \pi\new(a_{t+1} \mid s_{t+1})}} \\
-&\;\;\vdots \\
-&\leq \E[\pi\new]{\sum_{t' = t}^{\infty} \gamma^{t' - t} \left( r_t - \log \pi\new(a_t \mid s_t) \right)} \\
-&= \Q[\pi\new]{s_t}{a_t}.
-\end{align*}
-$$
-
-Thus, we have that $\J{\pi\new} \geq \J{\pi\old}$.
+This is the same bound as in @sec-soft-policy-improvement, so continuing the proof identically to the original case we have that $\Q[\pi\old]{s}{a} \leq \Q[\pi\new]{s}{a}$ for all $a \in \AA$.
