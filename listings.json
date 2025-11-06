@@ -2,9 +2,6 @@
   {
     "listing": "/index.html",
     "items": [
-      "/posts/maximum-entropy-rl/index.html",
-      "/posts/irl/index.html",
-      "/posts/gd/index.html",
       "/posts/trpo/index.html"
     ]
   }

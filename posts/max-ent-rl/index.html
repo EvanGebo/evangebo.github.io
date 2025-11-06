@@ -10,7 +10,7 @@
 <meta name="dcterms.date" content="2025-09-16">
 <meta name="description" content="An introduction to maximum entropy reinforcement learning.">
 
-<title>Maximum Entropy Reinforcement Learning – Evan’s Blog</title>
+<title>Maximum Entropy Reinforcement Learning – Evan’s Archive</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -42,7 +42,7 @@ ul.task-list li input[type="checkbox"] {
 <link href="../../site_libs/quarto-html/quarto-syntax-highlighting-ea385d0e468b0dd5ea5bf0780b1290d9.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../site_libs/bootstrap/bootstrap-724ccf1039b988e95747fb15f2d8dda7.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-c4c974b0f9704e9f39866b32580d1b9c.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -74,6 +74,7 @@ ul.task-list li input[type="checkbox"] {
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
+<meta name="quarto:status" content="draft">
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
@@ -106,20 +107,20 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../styles.css">
-<meta property="og:title" content="Maximum Entropy Reinforcement Learning – Evan’s Blog">
+<meta property="og:title" content="Maximum Entropy Reinforcement Learning – Evan’s Archive">
 <meta property="og:description" content="An introduction to maximum entropy reinforcement learning.">
-<meta property="og:site_name" content="Evan's Blog">
+<meta property="og:site_name" content="Evan's Archive">
 </head>
 
 <body class="nav-fixed quarto-light">
 
 <div id="quarto-search-results"></div>
-  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+  <header id="quarto-header" class="headroom fixed-top quarto-banner"><div id="quarto-draft-alert" class="alert alert-warning"><i class="bi bi-pencil-square"></i>Draft</div>
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
     <a class="navbar-brand" href="../../index.html">
-    <span class="navbar-title">Evan’s Blog</span>
+    <span class="navbar-title">Evan’s Archive</span>
     </a>
   </div>
             <div id="quarto-search" class="" title="Search"></div>
@@ -196,10 +197,7 @@ window.Quarto = {
   <li><a href="#sec-soft-policy-extraction" id="toc-sec-soft-policy-extraction" class="nav-link" data-scroll-target="#sec-soft-policy-extraction"><span class="header-section-number">4</span> Soft Policy Extraction</a></li>
   <li><a href="#sec-soft-policy-improvement" id="toc-sec-soft-policy-improvement" class="nav-link" data-scroll-target="#sec-soft-policy-improvement"><span class="header-section-number">5</span> Soft Policy Improvement</a></li>
   <li><a href="#sec-soft-policy-evaluation" id="toc-sec-soft-policy-evaluation" class="nav-link" data-scroll-target="#sec-soft-policy-evaluation"><span class="header-section-number">6</span> Soft Policy Evaluation</a></li>
-  <li><a href="#sec-soft-policy-iteration" id="toc-sec-soft-policy-iteration" class="nav-link" data-scroll-target="#sec-soft-policy-iteration"><span class="header-section-number">7</span> Soft Policy Iteration</a>
-  <ul class="collapse">
-  <li><a href="#soft-policy-improvement-2" id="toc-soft-policy-improvement-2" class="nav-link" data-scroll-target="#soft-policy-improvement-2"><span class="header-section-number">7.1</span> Soft Policy Improvement</a></li>
-  </ul></li>
+  <li><a href="#extension-to-continuous-spaces" id="toc-extension-to-continuous-spaces" class="nav-link" data-scroll-target="#extension-to-continuous-spaces"><span class="header-section-number">7</span> Extension to Continuous Spaces</a></li>
   </ul>
 </nav>
     </div>
@@ -286,6 +284,18 @@ Table&nbsp;1: Common notation.
 </figure>
 </div>
 <p>In classic reinforcement learning we learn a deterministic policy. This is theoretically optimal, but it doesn’t always work well in practice. For one, our environment often isn’t exactly a Markov Decision Process, meaning the Markov assumption may not hold in practice. Additionally, the higher exploration of stochastic policies can make training faster, and also be more robust in unknown environments. So how can we modify the “hard” reinforcement learning problem of learning an optimal deterministic policy to the “soft” reinforcement learning problem of learnin an optimal stochastic policy?</p>
+<div id="fig-demo" class="quarto-float quarto-figure quarto-figure-center anchored page-columns page-full">
+<figure class="quarto-float quarto-float-fig figure page-columns page-full">
+<div aria-describedby="fig-demo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca" class="page-columns page-full">
+<div id="div-demo" class="column-body-outset">
+
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-demo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Consider the simple gridworld where the agent randomly starts at any of the blue start cells, and must reach any of the yellow goal cells.
+</figcaption>
+</figure>
+</div>
 <section id="sec-entropy" class="level1" data-number="1">
 <h1 data-number="1"><span class="header-section-number">1</span> Stochastic Policies and Entropy</h1>
 <p>If we want our policies to be more random, we need a quantifiable way to measure the “randomness” of a policy. A common method is the <a href="https://en.wikipedia.org/wiki/Differential_entropy">entropy</a> <span class="math inline">\(\mathbb{H}\)</span>, defined as</p>
@@ -454,7 +464,7 @@ Soft Policy Extraction
 </div>
 </div>
 </div>
-<p>You can investigate this distribution in <a href="#fig-boltzmann-distribution" class="quarto-xref">Figure&nbsp;1</a>.</p>
+<p>You can investigate this distribution in <a href="#fig-boltzmann-distribution" class="quarto-xref">Figure&nbsp;2</a>.</p>
 <div id="fig-boltzmann-distribution" class="quarto-float quarto-figure quarto-figure-center anchored page-columns page-full">
 <figure class="quarto-float quarto-float-fig figure page-columns page-full">
 <div aria-describedby="fig-boltzmann-distribution-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca" class="page-columns page-full">
@@ -463,7 +473,7 @@ Soft Policy Extraction
 </div>
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-boltzmann-distribution-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1: Visualization of the optimal Boltzmann distribution for a simple 4-action problem.
+Figure&nbsp;2: Visualization of the optimal Boltzmann distribution for a simple 4-action problem.
 </figcaption>
 </figure>
 </div>
@@ -521,81 +531,38 @@ Soft Policy Improvement
 </section>
 <section id="sec-soft-policy-evaluation" class="level1" data-number="6">
 <h1 data-number="6"><span class="header-section-number">6</span> Soft Policy Evaluation</h1>
+<p>Let’s assume we have a policy <span class="math inline">\(\pi_k\)</span> which is an optimal Boltzmann distribution from <a href="#eq-soft-policy-extraction" class="quarto-xref">Equation&nbsp;1</a>. Then using a one step update with the Bellman equation, we see that the update simplifies to <span class="math display">\[
+\begin{align*}
+\widetilde{Q}^{}_{k+1}(s, a) &amp;= \operatorname*{\mathbb{E}}_{ \substack{s', r \sim p(\cdot, \cdot \mid s, a)} }\!\left[ r + \gamma\operatorname*{\mathbb{E}}_{ \substack{a' \sim \pi_k(\cdot \mid s')} }\!\left[  \widetilde{Q}^{}_{k}(s', a') - \alpha\log\pi_k(a' \mid s')  \right] \right] \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{s', r \sim p(\cdot, \cdot \mid s, a)} }\!\left[ r + \gamma\operatorname*{\mathbb{E}}_{ \substack{a' \sim \pi_k(\cdot \mid s')} }\!\left[  \widetilde{Q}^{}_{k}(s', a') - \widetilde{Q}^{}_{k}(s', a') + \alpha\log\widetilde{Z}^{\pi_k}(s')  \right] \right] \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{s', r \sim p(\cdot, \cdot \mid s, a)} }\!\left[ r + \gamma\alpha\log\widetilde{Z}^{\pi_k}(s') \right].
+\end{align*}
+\]</span> From <a href="#thm-soft-policy-improvement" class="quarto-xref">Theorem&nbsp;2</a>, we know that in the exact case, this step guarantees improvement, so all that’s left to show is that only doing a one-step evaluation will converge.</p>
 </section>
-<section id="sec-soft-policy-iteration" class="level1" data-number="7">
-<h1 data-number="7"><span class="header-section-number">7</span> Soft Policy Iteration</h1>
-<p>Now we have the tools needed to define the full soft policy iteration algorithm: 1. Run one step of soft policy improvement (<a href="#sec-soft-policy-extraction" class="quarto-xref">Section&nbsp;4</a>)</p>
-<p>We consider the <span class="math inline">\(\ell_\infty\)</span> norm on the action-value functions defined by <span class="math inline">\(\| \widetilde{Q}^{\pi_\text{new}} - \widetilde{Q}^{\pi_\text{old}} \|_\infty \mathrel{\mathop{=}\limits^{\smash{\lower 0.8ex\hbox{\scriptsize def}}}}\max_{s \in \mathcal S, a \in \mathcal A} | \widetilde{Q}^{\pi_\text{new}}(s, a) - \widetilde{Q}^{\pi_\text{old}}(s, a) |\)</span>. Then</p>
+<section id="extension-to-continuous-spaces" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Extension to Continuous Spaces</h1>
+<p>Instead of updating with</p>
 <p><span class="math display">\[
-\newcommand{\norm}{\|\widetilde{Q}^{\pi_\text{new}} - \widetilde{Q}^{\pi_\text{old}}\|_\infty}
-\begin{align*}
-\widetilde{V}^{\pi}(s) &amp;= \operatorname*{\mathbb{E}}_{ \substack{a \sim \pi(\cdot \mid s)} }\!\left[ \widetilde{Q}^{\pi}(s, a) - \alpha\log\pi(a \mid s) \right] \\
-&amp;= \operatorname*{\mathbb{E}}_{ \substack{a \sim \pi(\cdot \mid s)} }\!\left[ \widetilde{Q}^{\pi}(s, a) - \alpha\widetilde{Q}^{\pi}(s, a) \right] + \log\widetilde{Z}^{\pi}(s) \\
-&amp;= (1 - \alpha)\operatorname*{\mathbb{E}}_{ \substack{a \sim \pi(\cdot \mid s)} }\!\left[ \widetilde{Q}^{\pi}(s, a) \right] + \log \int_\mathcal A\exp \widetilde{Q}^{\pi}(s, a) \; \mathrm{d}a
-\end{align*}
+\pi_\text{new}(a \mid s) = \frac{1}{\widetilde{Z}^{\pi_\text{old}}(s)}\exp\left( \frac{1}{\alpha}\widetilde{Q}^{\pi_\text{old}}(s, a) \right),
 \]</span></p>
-<p>Now we see that</p>
+<p>let’s update using</p>
+<p><span class="math display">\[
+\pi_\text{new}(\cdot \mid s) = \mathop{\mathrm{argmax}}_{\pi \in \Pi}\; D_\text{KL}\left( \pi(\cdot \mid s) \;\middle\|\; \frac{1}{\widetilde{Z}^{\pi_\text{old}}(s)}\exp \left( \frac{\widetilde{Q}^{\pi_\text{old}}(s, \cdot)}{\alpha} \right) \right).
+\]</span></p>
+<p>It turns out that this update step is sufficient to still show convergence with the soft policy improvement theorem:</p>
 <p><span class="math display">\[
 \begin{align*}
-\log \int_\mathcal A\exp \widetilde{Q}^{\pi}(s, a) \;\mathrm{d}a &amp;\leq \log \int_\mathcal A\exp\!\left(\widetilde{Q}^{\pi_\text{old}}(s, a) + \norm\right) \\
-&amp;= \log\left( \exp \norm \int_\mathcal A\exp \widetilde{Q}^{\pi}(s, a) \; \mathrm{d}a \right) \\
-&amp;= \norm + \log\int_\mathcal A\exp\widetilde{Q}^{\pi}(s, a)\;\mathrm{d}a.
+D_\text{KL}\left( \pi(a \mid s) \;\middle\|\; \frac{1}{\widetilde{Z}^{\pi_\text{old}}(s)}\exp \left( \frac{\widetilde{Q}^{\pi_\text{old}}(s, a)}{\alpha} \right) \right) &amp;= \operatorname*{\mathbb{E}}_{ \substack{a \sim \pi(\cdot \mid s)} }\!\left[  \log\pi(a \mid s) - \log\left(\frac{\exp\left( \frac{1}{\alpha}\widetilde{Q}^{\pi_\text{old}}(s, a) \right)}{\widetilde{Z}^{\pi_\text{old}}(s)}\right)  \right] \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{a \sim \pi(\cdot \mid s)} }\!\left[  \log \pi(a \mid s) - \frac{1}{\alpha}\widetilde{Q}^{\pi_\text{old}}(s, a)  \right] + \log\widetilde{Z}^{\pi_\text{old}}(s).
 \end{align*}
 \]</span></p>
-<section id="soft-policy-improvement-2" class="level2" data-number="7.1">
-<h2 data-number="7.1" class="anchored" data-anchor-id="soft-policy-improvement-2"><span class="header-section-number">7.1</span> Soft Policy Improvement</h2>
-<p>In the hard setting, we relied on the hard policy improvement theorem to prove that our policy update improved our objective.</p>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Hard Policy Improvement Theorem (<a href="http://incompleteideas.net/book/the-book-2nd.html">Sutton &amp; Barto §4.1</a>)
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>For two policies <span class="math inline">\(\pi_\text{new}\)</span> and <span class="math inline">\(\pi_\text{old}\)</span>, if</p>
+<p>Since <span class="math inline">\(\log\widetilde{Z}^{\pi_\text{old}}(s)\)</span> is independant of the optimization, we can rewrite the optimization bound as</p>
 <p><span class="math display">\[
-V^{\pi_\text{old}}(s) \leq \operatorname*{\mathbb{E}}_{ \substack{{a \sim \pi_\text{new}(\cdot \mid s)}} }\!\left[ Q^{\pi_\text{old}}(s, a) \right]
+\operatorname*{\mathbb{E}}_{ \substack{a \sim \pi_\text{new}(\cdot \mid s)} }\!\left[  \log \pi_\text{new}(a \mid s) - \frac{1}{\alpha}\widetilde{Q}^{\pi_\text{old}}(s, a)  \right] \leq \operatorname*{\mathbb{E}}_{ \substack{a \sim \pi_\text{old}(\cdot \mid s)} }\!\left[  \log \pi_\text{old}(a \mid s) - \frac{1}{\alpha}\widetilde{Q}^{\pi_\text{old}}(s, a)  \right].
 \]</span></p>
-<p>for all <span class="math inline">\(s \in \mathcal S\)</span>, then <span class="math inline">\(J(\pi_\text{new}) \geq J(\pi_\text{old})\)</span>.</p>
-</div>
-</div>
-<p>Considering the update in <a href="#sec-soft-policy-iteration" class="quarto-xref">Section&nbsp;7</a>, we have a simple optimization bound:</p>
-<p><span class="math display">\[
-D_\text{KL}\left( \pi_\text{new}(\cdot \mid s) \;\middle\|\; \pi_\text{new}^*(\cdot \mid s) \right) \leq D_\text{KL}\left( \pi_\text{old}(\cdot \mid s) \;\middle\|\; \pi_\text{new}^*(\cdot \mid s) \right).
-\]</span></p>
-<p>Since <span class="math inline">\(\pi_\text{new}^*\)</span> is a Boltzmann distribution, we can rewrite the KL divergence between some policy <span class="math inline">\(\pi\)</span> and <span class="math inline">\(\pi_\text{new}^*\)</span> as</p>
-<p><span class="math display">\[
-\begin{align*}
-D_\text{KL}\left( \pi(\cdot \mid s) \;\middle\|\; \pi_\text{new}^*(\cdot \mid s) \right) &amp;= \operatorname*{\mathbb{E}}_{ \substack{a \sim \pi(\cdot \mid s)} }\!\left[ \log \pi(a \mid s) - \log \pi_\text{new}^*(a \mid s) \right] \\
-&amp;= \operatorname*{\mathbb{E}}_{ \substack{a \sim \pi(\cdot \mid s)} }\!\left[ \log \pi(a \mid s) - \log\left( \frac{\exp \widetilde{Q}^{\pi_\text{old}}(s, a)}{\widetilde{Z}^{\pi_\text{old}}(s)} \right) \right] \\
-&amp;= \operatorname*{\mathbb{E}}_{ \substack{a \sim \pi(\cdot \mid s)} }\!\left[ \log \pi(a \mid s) - \widetilde{Q}^{\pi_\text{old}}(s, a) \right] + \widetilde{Z}^{\pi_\text{old}}(s).
-\end{align*}
-\]</span></p>
-<p>This lets us rewrite the optimization bound as</p>
-<p><span class="math display">\[
-\operatorname*{\mathbb{E}}_{ \substack{{a \sim \pi_\text{new}(\cdot \mid s)}} }\!\left[ \log \pi_\text{new}(a \mid s_t) - \widetilde{Q}^{\pi_\text{old}}(s_t, a) \right] \leq \operatorname*{\mathbb{E}}_{ \substack{{a \sim \pi_\text{old}(\cdot \mid s)}} }\!\left[ \log \pi_\text{old}(a \mid s_t) - \widetilde{Q}^{\pi_\text{old}}(s_t, a) \right].
-\]</span></p>
-<p>Inverting this inequality and substituting in the soft value function, we see that</p>
-<p><span class="math display">\[
-\widetilde{V}^{\pi_\text{old}}(s_t) \leq \operatorname*{\mathbb{E}}_{ \substack{{a \sim \pi_\text{new}(\cdot \mid s)}} }\!\left[ \widetilde{Q}^{\pi_\text{old}}(s_t, a) - \log\pi_\text{new}(a \mid s_t) \right].
-\]</span></p>
-<p>Now using the same unrolling trick in the hard policy improvement theorem, we see that</p>
-<p><span class="math display">\[
-\begin{align*}
-\widetilde{Q}^{\pi_\text{old}}(s_t, a_t) &amp;= \operatorname*{\mathbb{E}}_{ \substack{s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)} }\!\left[ r_t + \gamma\widetilde{V}^{\pi_\text{old}}(()s_{t+1}) \right] \\
-&amp;\leq \operatorname*{\mathbb{E}}_{ \substack{s_{t+1}, r_t \sim p(\cdot, \cdot \mid s_t, a_t)} }\!\left[ r_t + \gamma\operatorname*{\mathbb{E}}_{ \substack{a_{t+1} \sim \pi(\cdot \mid s_t)} }\!\left[ \widetilde{Q}^{\pi_\text{old}}(s_{t+1}, a_{t+1}) - \log \pi_\text{new}(a_{t+1} \mid s_{t+1}) \right] \right] \\
-&amp;\;\;\vdots \\
-&amp;\leq \operatorname*{\mathbb{E}}_{ \substack{\pi_\text{new}} }\!\left[ \sum_{t' = t}^{\infty} \gamma^{t' - t} \left( r_t - \log \pi_\text{new}(a_t \mid s_t) \right) \right] \\
-&amp;= \widetilde{Q}^{\pi_\text{new}}(s_t, a_t).
-\end{align*}
-\]</span></p>
-<p>Thus, we have that <span class="math inline">\(\widetilde{J}(\pi_\text{new}) \geq \widetilde{J}(\pi_\text{old})\)</span>.</p>
+<p>This is the same bound as in <a href="#sec-soft-policy-improvement" class="quarto-xref">Section&nbsp;5</a>, so continuing the proof identically to the original case we have that <span class="math inline">\(\widetilde{Q}^{\pi_\text{old}}(s, a) \leq \widetilde{Q}^{\pi_\text{new}}(s, a)\)</span> for all <span class="math inline">\(a \in \mathcal A\)</span>.</p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->
@@ -1000,7 +967,9 @@ D_\text{KL}\left( \pi(\cdot \mid s) \;\middle\|\; \pi_\text{new}^*(\cdot \mid s)
   </script>
 </div> <!-- /content -->
 <script src="../../js/utils.js" defer=""></script>
+<script src="../../js/gridworld.js" defer=""></script>
 <script src="boltzmann-distribution.js" defer=""></script>
+<script src="demo.js" defer=""></script>
 
 
 

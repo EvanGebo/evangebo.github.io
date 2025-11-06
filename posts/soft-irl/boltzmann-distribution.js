@@ -1,13 +1,21 @@
 document.addEventListener("DOMContentLoaded", function() {
     const DIV = "#div-boltzmann-distribution";
+    // Ensure the container has enough space for slider and SVG
+    const container = document.querySelector(DIV);
+    // if (container) {
+    //     container.style.minHeight = "calc(100% + 60px)";
+    //     container.style.paddingBottom = "60px";
+    //     container.style.overflow = "visible";
+    // }
 
-    const { svg, w, h, mh, mt, mb } = window.UTILS.getSVG(DIV, 30, 1, 7, false);
+    const { svg, w, h, mh, mt, mb } = window.UTILS.getSVG(DIV, 30, 1, 7, true);
 
     const data = [
-        { label: String.raw`Q^{\pi_\text{old}}(a_1, s)`, newLabel: String.raw`\pi_\text{new}(a_1 \;|\; s)`, value: .30 },
-        { label: String.raw`Q^{\pi_\text{old}}(a_2, s)`, newLabel: String.raw`\pi_\text{new}(a_2 \;|\; s)`, value: .80 },
-        { label: String.raw`Q^{\pi_\text{old}}(a_3, s)`, newLabel: String.raw`\pi_\text{new}(a_3 \;|\; s)`, value: .45 },
-        { label: String.raw`Q^{\pi_\text{old}}(a_4, s)`, newLabel: String.raw`\pi_\text{new}(a_4 \;|\; s)`, value: .60 }
+        { label: "Q(a₁, s)", newLabel: "π(a₁ | s)", value: .30 },
+        { label: "Q(a₂, s)", newLabel: "π(a₂ | s)", value: .80 },
+        { label: "Q(a₃, s)", newLabel: "π(a₃ | s)", value: .45 },
+        { label: "Q(a₄, s)", newLabel: "π(a₄ | s)", value: .60 },
+        { label: "Q(a₅, s)", newLabel: "π(a₅ | s)", value: .20 }
     ];
 
     const xQ = d3.scaleBand()
@@ -24,6 +32,20 @@ document.addEventListener("DOMContentLoaded", function() {
         .domain([0, 1])
         .nice()
         .range([h, 0]);
+
+        svg.append("g")
+            .attr("transform", `translate(0, ${h})`)
+            .call(d3.axisBottom(xQ)
+                .tickFormat(label => {
+                    // Convert Q(a₁, s) to LaTeX string
+                    // Replace Unicode subscript with _{i}
+                    const latex = label.replace(/Q\(a([₁₂₃₄₅]), s\)/, (m, i) => {
+                        const sub = { '₁': '1', '₂': '2', '₃': '3', '₄': '4', '₅': '5' }[i];
+                        return `Q(a_{${sub}}, s)`;
+                    });
+                    return `$${latex}$`;
+                })
+            );
 
     const gQ = svg.append("g")
         .attr("class", "gQ");
@@ -77,43 +99,48 @@ document.addEventListener("DOMContentLoaded", function() {
             .attr("height", d => h - y(d.value));
     }
 
-    svg.append("text")
-        .attr("x", 0.45 * w / 2)
-        .attr("y", h + 40)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "15px")
-        .attr("font-family", "inherit")
-        .attr("fill", "inherit")
-        .text("Action-Value Functions");
+    // Add Pi axis
+    gPi.append("g")
+        .attr("transform", `translate(0, ${h})`)
+        .call(d3.axisBottom(xPi)
+            .tickFormat(label => {
+                // Convert π(a₁ | s) to LaTeX string
+                const latex = label.replace(/π\(a([₁₂₃₄₅]) \| s\)/, (m, i) => {
+                    const sub = { '₁': '1', '₂': '2', '₃': '3', '₄': '4', '₅': '5' }[i];
+                    return `\\pi(a_{${sub}} \mid s)`;
+                });
+                return `$${latex}$`;
+            })
+        );
 
     svg.append("text")
         .attr("x", 1.55 * w / 2)
         .attr("y", h + 40)
         .attr("text-anchor", "middle")
-        .attr("font-size", "15px")
+        .attr("font-size", "18px")
         .attr("font-family", "inherit")
         .attr("fill", "inherit")
         .text("Induced Boltzmann Distribution");
-    
-    const gQAxis = gQ.append("g")
-        .attr("transform", `translate(0, ${h})`);
-    gQAxis.call(d3.axisBottom(xQ));
-    gQAxis.selectAll(".tick")
-        .each(function(d) {
-            const tick = d3.select(this);
-            tick.selectAll("text").remove();
-            window.UTILS.katexFO(tick, { x: 0, y: 15, tex: d, anchor: "middle", fontSize: 10 });
-        });
-    
-    const gPiAxis = gPi.append("g")
-        .attr("transform", `translate(0, ${h})`);
-    gPiAxis.call(d3.axisBottom(xPi));
-    gPiAxis.selectAll(".tick")
-        .each(function(d) {
-            const tick = d3.select(this);
-            tick.selectAll("text").remove();
-            window.UTILS.katexFO(tick, { x: 0, y: 15, tex: d, anchor: "middle", fontSize: 10 });
-        });
+
+    // Render MathJax SVG for label
+    const tex = window.MathJax.tex2svg("\\text{Softmax Policy }\\pi", { display: false });
+    const texSVG = tex.querySelector('svg');
+    if (texSVG) {
+        // Set SVG attributes for positioning and style
+        texSVG.setAttribute('x', (0.45 * w / 2).toString());
+        texSVG.setAttribute('y', (h + 40).toString());
+        texSVG.setAttribute('width', '300');
+        texSVG.setAttribute('height', '30');
+        texSVG.setAttribute('style', 'display: block; margin: 0 auto;');
+        // Convert SVG to string and add to main SVG using foreignObject
+        const foreign = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        foreign.setAttribute('x', (0.45 * w / 2 - 150).toString());
+        foreign.setAttribute('y', (h + 20).toString());
+        foreign.setAttribute('width', '300');
+        foreign.setAttribute('height', '30');
+        foreign.appendChild(texSVG);
+        svg.node().appendChild(foreign);
+    }
 
     // Create a slider for scaling the Q-values
     const sliderContainer = document.createElement("div");
@@ -122,40 +149,28 @@ document.addEventListener("DOMContentLoaded", function() {
     sliderContainer.style.display = "block";
     sliderContainer.style.clear = "both";
 
-    // Create label+value row
-    const labelRow = document.createElement("div");
-    labelRow.style.textAlign = "center";
-    labelRow.style.marginBottom = "4px";
-    labelRow.style.fontSize = "15px";
-
-    const sliderLabel = document.createElement("span");
+    const sliderLabel = document.createElement("label");
     sliderLabel.textContent = "Alpha: ";
-    sliderLabel.style.marginRight = "4px";
+    sliderLabel.style.marginRight = "10px";
 
-    const sliderValue = document.createElement("span");
-    sliderValue.textContent = "1.00";
-    sliderValue.style.fontWeight = "bold";
-
-    labelRow.appendChild(sliderLabel);
-    labelRow.appendChild(sliderValue);
-    sliderContainer.appendChild(labelRow);
-
-    // Create slider row
     const slider = document.createElement("input");
     slider.type = "range";
-    slider.min = "0.02";
-    slider.max = "9.99";
+    slider.min = "0.1";
+    slider.max = "10";
     slider.value = "1";
-    slider.step = "0.01";
-    slider.style.width = "80%";
+    slider.step = "0.1";
+
+    const sliderValue = document.createElement("span");
+    sliderValue.textContent = slider.value;
 
     slider.oninput = function () {
         sliderValue.textContent = slider.value;
         alpha = parseFloat(slider.value);
-        sliderValue.textContent = parseFloat(slider.value).toFixed(2);
         updatePiBars();
     };
 
+    sliderContainer.appendChild(sliderLabel);
     sliderContainer.appendChild(slider);
+    sliderContainer.appendChild(sliderValue);
     document.querySelector(DIV).appendChild(sliderContainer);
 });

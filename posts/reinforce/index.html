@@ -8,8 +8,9 @@
 
 <meta name="author" content="Evan Gebo">
 <meta name="dcterms.date" content="2025-08-23">
+<meta name="description" content="An introduction to the fallbacks of policy gradient methods and the theory of trust region policy optimization.">
 
-<title>REINFORCE – Evan’s Blog</title>
+<title>REINFORCE, TRPO, and PPO – Evan’s Blog</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -22,27 +23,7 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-/* CSS for citations */
-div.csl-bib-body { }
-div.csl-entry {
-  clear: both;
-  margin-bottom: 0em;
-}
-.hanging-indent div.csl-entry {
-  margin-left:2em;
-  text-indent:-2em;
-}
-div.csl-left-margin {
-  min-width:2em;
-  float:left;
-}
-div.csl-right-inline {
-  margin-left:2em;
-  padding-left:1em;
-}
-div.csl-indent {
-  margin-left: 2em;
-}</style>
+</style>
 
 
 <script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
@@ -58,14 +39,13 @@ div.csl-indent {
 <script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-ea385d0e468b0dd5ea5bf0780b1290d9.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-dark-bc185b5c5bdbcb35c2eb49d8a876ef70.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-ea385d0e468b0dd5ea5bf0780b1290d9.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-ea385d0e468b0dd5ea5bf0780b1290d9.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../site_libs/bootstrap/bootstrap-724ccf1039b988e95747fb15f2d8dda7.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="../../site_libs/bootstrap/bootstrap-dark-e45e533150ceaa793a90dfce03d5881a.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="../../site_libs/bootstrap/bootstrap-724ccf1039b988e95747fb15f2d8dda7.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-c4c974b0f9704e9f39866b32580d1b9c.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../../site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="../../site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="../../site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -93,6 +73,10 @@ div.csl-indent {
     "search-label": "Search"
   }
 }</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
@@ -125,184 +109,13 @@ window.Quarto = {
 </script>
 
 <link rel="stylesheet" href="../../styles.css">
-<meta property="og:title" content="REINFORCE – Evan’s Blog">
-<meta property="og:description" content="">
-<meta property="og:image" content="image.jpg">
+<meta property="og:title" content="REINFORCE, TRPO, and PPO – Evan’s Blog">
+<meta property="og:description" content="An introduction to the fallbacks of policy gradient methods and the theory of trust region policy optimization.">
+<meta property="og:image" content="trust-region.jpg">
 <meta property="og:site_name" content="Evan's Blog">
 </head>
 
-<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
-    const toggleBodyColorMode = (bsSheetEl) => {
-      const mode = bsSheetEl.getAttribute("data-mode");
-      const bodyEl = window.document.querySelector("body");
-      if (mode === "dark") {
-        bodyEl.classList.add("quarto-dark");
-        bodyEl.classList.remove("quarto-light");
-      } else {
-        bodyEl.classList.add("quarto-light");
-        bodyEl.classList.remove("quarto-dark");
-      }
-    }
-    const toggleBodyColorPrimary = () => {
-      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
-      if (bsSheetEl) {
-        toggleBodyColorMode(bsSheetEl);
-      }
-    }
-    const setColorSchemeToggle = (alternate) => {
-      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
-      for (let i=0; i < toggles.length; i++) {
-        const toggle = toggles[i];
-        if (toggle) {
-          if (alternate) {
-            toggle.classList.add("alternate");
-          } else {
-            toggle.classList.remove("alternate");
-          }
-        }
-      }
-    };
-    const toggleColorMode = (alternate) => {
-      // Switch the stylesheets
-      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
-      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
-      manageTransitions('#quarto-margin-sidebar .nav-link', false);
-      if (alternate) {
-        // note: dark is layered on light, we don't disable primary!
-        enableStylesheet(alternateStylesheets);
-        for (const sheetNode of alternateStylesheets) {
-          if (sheetNode.id === "quarto-bootstrap") {
-            toggleBodyColorMode(sheetNode);
-          }
-        }
-      } else {
-        disableStylesheet(alternateStylesheets);
-        enableStylesheet(primaryStylesheets)
-        toggleBodyColorPrimary();
-      }
-      manageTransitions('#quarto-margin-sidebar .nav-link', true);
-      // Switch the toggles
-      setColorSchemeToggle(alternate)
-      // Hack to workaround the fact that safari doesn't
-      // properly recolor the scrollbar when toggling (#1455)
-      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
-        manageTransitions("body", false);
-        window.scrollTo(0, 1);
-        setTimeout(() => {
-          window.scrollTo(0, 0);
-          manageTransitions("body", true);
-        }, 40);
-      }
-    }
-    const disableStylesheet = (stylesheets) => {
-      for (let i=0; i < stylesheets.length; i++) {
-        const stylesheet = stylesheets[i];
-        stylesheet.rel = 'disabled-stylesheet';
-      }
-    }
-    const enableStylesheet = (stylesheets) => {
-      for (let i=0; i < stylesheets.length; i++) {
-        const stylesheet = stylesheets[i];
-        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
-          stylesheet.rel = 'stylesheet';
-        }
-      }
-    }
-    const manageTransitions = (selector, allowTransitions) => {
-      const els = window.document.querySelectorAll(selector);
-      for (let i=0; i < els.length; i++) {
-        const el = els[i];
-        if (allowTransitions) {
-          el.classList.remove('notransition');
-        } else {
-          el.classList.add('notransition');
-        }
-      }
-    }
-    const isFileUrl = () => {
-      return window.location.protocol === 'file:';
-    }
-    const hasAlternateSentinel = () => {
-      let styleSentinel = getColorSchemeSentinel();
-      if (styleSentinel !== null) {
-        return styleSentinel === "alternate";
-      } else {
-        return false;
-      }
-    }
-    const setStyleSentinel = (alternate) => {
-      const value = alternate ? "alternate" : "default";
-      if (!isFileUrl()) {
-        window.localStorage.setItem("quarto-color-scheme", value);
-      } else {
-        localAlternateSentinel = value;
-      }
-    }
-    const getColorSchemeSentinel = () => {
-      if (!isFileUrl()) {
-        const storageValue = window.localStorage.getItem("quarto-color-scheme");
-        return storageValue != null ? storageValue : localAlternateSentinel;
-      } else {
-        return localAlternateSentinel;
-      }
-    }
-    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
-      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
-      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
-      let newTheme = '';
-      if(authorPrefersDark) {
-        newTheme = isAlternate ? baseTheme : alternateTheme;
-      } else {
-        newTheme = isAlternate ? alternateTheme : baseTheme;
-      }
-      const changeGiscusTheme = () => {
-        // From: https://github.com/giscus/giscus/issues/336
-        const sendMessage = (message) => {
-          const iframe = document.querySelector('iframe.giscus-frame');
-          if (!iframe) return;
-          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
-        }
-        sendMessage({
-          setConfig: {
-            theme: newTheme
-          }
-        });
-      }
-      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
-      if (isGiscussLoaded) {
-        changeGiscusTheme();
-      }
-    };
-    const authorPrefersDark = false;
-    const queryPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
-    const darkModeDefault = queryPrefersDark.matches;
-      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
-      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
-    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
-    // Dark / light mode switch
-    window.quartoToggleColorScheme = () => {
-      // Read the current dark / light value
-      let toAlternate = !hasAlternateSentinel();
-      toggleColorMode(toAlternate);
-      setStyleSentinel(toAlternate);
-      toggleGiscusIfUsed(toAlternate, darkModeDefault);
-      window.dispatchEvent(new Event('resize'));
-    };
-    queryPrefersDark.addEventListener("change", e => {
-      if(window.localStorage.getItem("quarto-color-scheme") !== null)
-        return;
-      const alternate = e.matches
-      toggleColorMode(alternate);
-      localAlternateSentinel = e.matches ? 'alternate' : 'default'; // this is used alongside local storage!
-      toggleGiscusIfUsed(alternate, darkModeDefault);
-    });
-    // Switch to dark mode if need be
-    if (hasAlternateSentinel()) {
-      toggleColorMode(true);
-    } else {
-      toggleColorMode(false);
-    }
-  </script>
+<body class="nav-fixed quarto-light">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top quarto-banner">
@@ -331,7 +144,6 @@ window.Quarto = {
 </ul>
           </div> <!-- /navcollapse -->
             <div class="quarto-navbar-tools">
-  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
 </div>
       </div> <!-- /container-fluid -->
     </nav>
@@ -340,8 +152,13 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">REINFORCE</h1>
-                                <div class="quarto-categories">
+      <h1 class="title">REINFORCE, TRPO, and PPO</h1>
+                  <div>
+        <div class="description">
+          An introduction to the fallbacks of policy gradient methods and the theory of trust region policy optimization.
+        </div>
+      </div>
+                          <div class="quarto-categories">
                 <div class="quarto-category">reinforcement learning</div>
                 <div class="quarto-category">machine learning</div>
               </div>
@@ -377,19 +194,26 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#policy-gradient-methods" id="toc-policy-gradient-methods" class="nav-link active" data-scroll-target="#policy-gradient-methods">Policy Gradient Methods</a></li>
-  <li><a href="#trust-region-policy-optimization" id="toc-trust-region-policy-optimization" class="nav-link" data-scroll-target="#trust-region-policy-optimization">Trust Region Policy Optimization</a>
+  <li><a href="#sec-reinforce" id="toc-sec-reinforce" class="nav-link active" data-scroll-target="#sec-reinforce"><span class="header-section-number">1</span> Policy Gradient Methods</a></li>
+  <li><a href="#sec-trpo" id="toc-sec-trpo" class="nav-link" data-scroll-target="#sec-trpo"><span class="header-section-number">2</span> Trust Region Policy Optimization</a>
   <ul class="collapse">
-  <li><a href="#sec-surrogate-advantage" id="toc-sec-surrogate-advantage" class="nav-link" data-scroll-target="#sec-surrogate-advantage">Deriving the Surrogate Advantage</a></li>
-  <li><a href="#quadratic-trust-region-optimization" id="toc-quadratic-trust-region-optimization" class="nav-link" data-scroll-target="#quadratic-trust-region-optimization">Quadratic Trust Region Optimization</a></li>
+  <li><a href="#sec-surrogate-advantage" id="toc-sec-surrogate-advantage" class="nav-link" data-scroll-target="#sec-surrogate-advantage"><span class="header-section-number">2.1</span> Deriving the Surrogate Advantage</a></li>
+  <li><a href="#the-monotone-convergence-guarantee" id="toc-the-monotone-convergence-guarantee" class="nav-link" data-scroll-target="#the-monotone-convergence-guarantee"><span class="header-section-number">2.2</span> The Monotone Convergence Guarantee</a></li>
+  <li><a href="#quadratic-trust-region-optimization" id="toc-quadratic-trust-region-optimization" class="nav-link" data-scroll-target="#quadratic-trust-region-optimization"><span class="header-section-number">2.3</span> Quadratic Trust Region Optimization</a>
+  <ul class="collapse">
+  <li><a href="#approximating-d_textklmax-left-vphantombig-pi_textold-pi-vphantombig-right" id="toc-approximating-d_textklmax-left-vphantombig-pi_textold-pi-vphantombig-right" class="nav-link" data-scroll-target="#approximating-d_textklmax-left-vphantombig-pi_textold-pi-vphantombig-right"><span class="header-section-number">2.3.1</span> Approximating <span class="math inline">\(D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span></a></li>
+  <li><a href="#approximating-widetildemathcal-lpi-pi_textold" id="toc-approximating-widetildemathcal-lpi-pi_textold" class="nav-link" data-scroll-target="#approximating-widetildemathcal-lpi-pi_textold"><span class="header-section-number">2.3.2</span> Approximating <span class="math inline">\(\widetilde{\mathcal L}(\pi, \pi_\text{old})\)</span></a></li>
+  <li><a href="#solving-the-update-step" id="toc-solving-the-update-step" class="nav-link" data-scroll-target="#solving-the-update-step"><span class="header-section-number">2.3.3</span> Solving the Update Step</a></li>
   </ul></li>
-  <li><a href="#proximal-policy-optimization" id="toc-proximal-policy-optimization" class="nav-link" data-scroll-target="#proximal-policy-optimization">Proximal Policy Optimization</a></li>
+  <li><a href="#what-have-we-accomplished" id="toc-what-have-we-accomplished" class="nav-link" data-scroll-target="#what-have-we-accomplished"><span class="header-section-number">2.4</span> What Have we Accomplished?</a></li>
+  </ul></li>
+  <li><a href="#sec-ppo" id="toc-sec-ppo" class="nav-link" data-scroll-target="#sec-ppo"><span class="header-section-number">3</span> Proximal Policy Optimization</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">4</span> Conclusion</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
-<main class="content quarto-banner-title-block" id="quarto-document-content">
-
+<main class="content quarto-banner-title-block page-columns page-full" id="quarto-document-content">
 
 
 
@@ -404,13 +228,13 @@ window.Quarto = {
 <div id="tbl-notation" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-notation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;1: Common notation.
+Table&nbsp;1: Common notation. Most is standard, except I distinguish the performance difference <span class="math inline">\(\mathcal L\)</span> from the surrogate advantage <span class="math inline">\(\widetilde{\mathcal L}\)</span>, and I implicitely parameterize <span class="math inline">\(\pi_\text{new}\)</span>, <span class="math inline">\(\pi\)</span>, and <span class="math inline">\(\pi_\text{old}\)</span> by <span class="math inline">\(\boldsymbol\theta_\text{new}\)</span>, <span class="math inline">\(\boldsymbol\theta\)</span>, and <span class="math inline">\(\boldsymbol\theta_\text{old}\)</span> respectively.
 </figcaption>
 <div aria-describedby="tbl-notation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
 <colgroup>
-<col style="width: 42%">
-<col style="width: 57%">
+<col style="width: 34%">
+<col style="width: 65%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -432,8 +256,8 @@ Table&nbsp;1: Common notation.
 <td style="text-align: left;">State <span class="math inline">\(s\)</span> in state space <span class="math inline">\(\mathcal S\)</span></td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><span class="math inline">\(r \in \mathcal R\)</span></td>
-<td style="text-align: left;">Reward <span class="math inline">\(r\)</span> in reward space <span class="math inline">\(\mathcal R\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(r \in \mathbb R\)</span></td>
+<td style="text-align: left;">Reward <span class="math inline">\(r\)</span> in reward space <span class="math inline">\(\mathbb R\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"><span class="math inline">\(V^\pi(s)\)</span></td>
@@ -452,134 +276,268 @@ Table&nbsp;1: Common notation.
 <td style="text-align: left;">Expected discounted reward objective</td>
 </tr>
 <tr class="odd">
-<td style="text-align: center;"><span class="math inline">\(\mathcal L(\pi; \pi')\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(\mathcal L(\pi, \pi')\)</span></td>
 <td style="text-align: left;">Performance difference objective</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><span class="math inline">\(\widetilde{\mathcal L}(\pi; \pi')\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(\widetilde{\mathcal L}(\pi, \pi')\)</span></td>
 <td style="text-align: left;">Surrogate advantage objective</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(D_\text{KL}^{} \!\left( \vphantom{\big(} \pi(\cdot \mid s) \,\|\, \pi'(\cdot \mid s) \vphantom{\big(} \right)\)</span></td>
+<td style="text-align: left;">KL divergence between <span class="math inline">\(\pi\)</span> and <span class="math inline">\(\pi'\)</span> for state <span class="math inline">\(s \in \mathcal S\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><span class="math inline">\(D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi \,\|\, \pi' \vphantom{\big(} \right)\)</span></td>
+<td style="text-align: left;">Maximum KL divergence between <span class="math inline">\(\pi\)</span> and <span class="math inline">\(\pi'\)</span> over all states <span class="math inline">\(s \in \mathcal S\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi \,\|\, \pi' \vphantom{\big(} \right)\)</span></td>
+<td style="text-align: left;">Expected KL divergence between <span class="math inline">\(\pi\)</span> and <span class="math inline">\(\pi'\)</span> over the state distribution <span class="math inline">\(\rho_\pi\)</span></td>
 </tr>
 </tbody>
 </table>
 </div>
 </figure>
 </div>
-<p>In reinforcement learning, we seek to learn a policy <span class="math inline">\(\pi\)</span> that maximizes the expected discounted rewards <span class="math display">\[
+<p>Consider a infinite-horizon<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> Markov decision process <span class="math inline">\(\mathcal M\)</span> with states <span class="math inline">\(s \in \mathcal S\)</span>, actions <span class="math inline">\(a \in \mathcal A\)</span>, rewards <span class="math inline">\(r \in \mathbb R\)</span>, discount factor <span class="math inline">\(\gamma \in (0, 1)\)</span>, transition dynamics <span class="math inline">\(p(s', r \mid s, a)\)</span>, and initial state distribution <span class="math inline">\(\rho_0(s)\)</span>. In reinforcement learning, we learn a policy <span class="math inline">\(\pi \in \Pi\)</span> that maximizes the expected cumulative discounted rewards <span id="eq-expected-cumulative-discounted-rewards"><span class="math display">\[
 J(\pi) \mathrel{\mathop{=}\limits^{\text{def}}}\operatorname*{\mathbb{E}}_{ \substack{s_0 \sim \rho_0} }\!\left[ V^{\pi}(s_0) \right].
-\]</span> There are many algorithms to solve this, and a common approach in modern methods is policy gradient methods, where we parameterize our policy <span class="math inline">\(\pi_\boldsymbol\theta\)</span> in terms of a parameter vector <span class="math inline">\(\boldsymbol\theta\in \mathbb R^d\)</span>, and then optimize <span class="math inline">\(J(\pi_\boldsymbol\theta)\)</span> using the gradient <span class="math inline">\(\nabla_\boldsymbol\theta J(\pi_\boldsymbol\theta)\)</span>.</p>
-<section id="policy-gradient-methods" class="level1">
-<h1>Policy Gradient Methods</h1>
-<p>In policy gradient methods, we use Monte Carlo sampling to sample trajectories <span class="math inline">\(\tau = ( s_0, a_0, r_0, \dots, s_T, a_T, r_T )\)</span> from a policy <span class="math inline">\(\pi\)</span>. A classic algorithm is REINFORCE, which uses the identity <span class="math display">\[
+\tag{1}\]</span></span> While there are many methods to solve this, a popular approach is using policy gradient methods (see <a href="http://incompleteideas.net/book/the-book-2nd.html">Sutton &amp; Barto, chapter 13</a>) which use gradient descent to directly optimize <span class="math inline">\(J(\pi)\)</span> using <span class="math inline">\(\nabla_\boldsymbol\theta J(\pi)\)</span>, where the policy <span class="math inline">\(\pi(a \mid s)\)</span> is parametized by some vector <span class="math inline">\(\boldsymbol\theta\in \mathbb R^d\)</span> (e.g.&nbsp;a neural network).</p>
+<div class="no-row-height column-margin column-container"><div id="fn1"><p><sup>1</sup>&nbsp;While the analysis is more difficult in the finite-horizon case, the results are the same.</p></div></div><div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Example: Common Policy Spaces
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>One common policy space for discrete state and action spaces is the Boltzmann policy (or softmax policy) parameterized by <span class="math inline">\(\boldsymbol\theta\in \mathbb R^{|\mathcal S| \times |\mathcal A|}\)</span>. It’s defined for <span class="math inline">\(\pi \in \Pi_\text{boltzmann}\)</span> as <span class="math display">\[
+\pi(a \mid s) = \frac{\exp(\theta_{s, a})}{\sum_{a' \in \mathcal A} \theta_{s, a'}}.
+\]</span></p>
+<hr>
+<p>For continuous state and action spaces, a common method is to use neural networks <span class="math inline">\(\boldsymbol\mu_\boldsymbol\theta\)</span> and <span class="math inline">\(\boldsymbol\sigma_\boldsymbol\theta\)</span> to predict the mean and covariance of a normal distribution. It’s defined for <span class="math inline">\(\pi \in \Pi_\text{neural\_network}\)</span> as <span class="math display">\[
+\pi(a \mid s) = \mathcal{N}\big(\boldsymbol\mu_\boldsymbol\theta(s), \text{diag}(\boldsymbol\sigma_\boldsymbol\theta(s))\big).
+\]</span></p>
+</div>
+</div>
+<section id="sec-reinforce" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Policy Gradient Methods</h1>
+<p>One of the first policy gradient methods is REINFORCE, which uses the policy gradient theorem <span class="math display">\[
 \nabla_\boldsymbol\theta J(\pi_\boldsymbol\theta) = \operatorname*{\mathbb{E}}_{ \substack{\tau \sim \pi_\boldsymbol\theta} }\!\left[  \sum_{t=0}^\infty\big( R_t(\tau) - b(s_t) \big) \nabla_\boldsymbol\theta\log \pi_\boldsymbol\theta(a_t \mid s_t)  \right].
-\]</span> To update the parameters <span class="math inline">\(\boldsymbol\theta\)</span>, REINFORCE approximates <span class="math inline">\(\nabla J(\boldsymbol\theta)\)</span> with a single Monte Carlo sample <span class="math inline">\(\tau \sim \pi_\boldsymbol\theta\)</span>: <span class="math display">\[
+\]</span> to update <span class="math inline">\(\boldsymbol\theta\)</span> (where <span class="math inline">\(R_t(\tau)\)</span> is the reward-to-go <span class="math inline">\(\sum_{k=t}^T \gamma^{k - t}r_k\)</span> and <span class="math inline">\(b:\mathcal S\to\mathbb R\)</span> is some baseline function). To evaluate this, it takes a single Monte Carlo sample <span class="math inline">\(\tau = (s_0, a_0, r_0, \dots, s_T, a_T, r_T)\)</span> from <span class="math inline">\(\pi_\boldsymbol\theta\)</span>, forming the approximation <span class="math display">\[
 \widetilde\nabla_\boldsymbol\theta J(\pi_\boldsymbol\theta) = \sum_{t=0}^\infty\big( R_t(\tau) - b(s_t) \big) \nabla_\boldsymbol\theta\log \pi_\boldsymbol\theta(a_t \mid s_t).
-\]</span></p>
-<p>While this is a unbiased estimator, it has unbounded variance. Following the analysis in <span class="citation" data-cites="Seita_2017"><a href="#ref-Seita_2017" role="doc-biblioref">[1]</a></span> we see that <span class="math display">\[
-\operatorname*{cov}_{ \substack{\tau \sim \pi_\boldsymbol\theta} }\!\left[ \widetilde\nabla_\boldsymbol\theta J(\pi_\boldsymbol\theta) \right] \approx \sum_{t=0}^\infty\operatorname*{\mathbb{E}}_{ \substack{\tau \sim \pi_\boldsymbol\theta} }\!\left[  \frac{\nabla_\boldsymbol\theta\log \pi_\boldsymbol\theta(a_t \mid s_t)^\top\nabla_\boldsymbol\theta\log \pi_\boldsymbol\theta(a_t \mid s_t)}{\pi_\boldsymbol\theta(a_t \mid s_t)^2}  \right] \operatorname*{\mathbb{E}}_{ \substack{\tau \sim \pi_\boldsymbol\theta} }\!\left[  \vphantom{\sum}\big( R_t(\tau) - V^{\pi_\boldsymbol\theta}(s_t) \big)^2  \right].
-\]</span> The first term will scale with <span class="math inline">\(\pi_\boldsymbol\theta(a_t \mid s_t)^{-2}\)</span>, which grows very large for low-probability actions and large trajectories. The only way to reduce this variance is by taking more Monte Carlo samples, which can be prohibitevly expensive.</p>
-<p>High variance is a large issue, since it means that we have no guarantee that our optimizer is moving in the right direction, i.e.&nbsp;it’s very easy for us to get <em>worse</em> steps when we update, due to bad Monte Carlo samples. This raises the question of can we change our update formula such that we are more likely to improve?</p>
+\]</span> While this is a unbiased estimator, it has unbounded variance. Following the analysis in <a href="https://danieltakeshi.github.io/2017/03/28/going-deeper-into-reinforcement-learning-fundamentals-of-policy-gradients/">this blog post by Daniel Seita</a> we can approximate the variance of the gradient estimate as <span class="math display">\[
+\operatorname*{cov}_{ \substack{\tau \sim \pi_\boldsymbol\theta} }\!\left[ \widetilde\nabla_\boldsymbol\theta J(\pi_\boldsymbol\theta) \right] \approx \sum_{t=0}^\infty\operatorname*{\mathbb{E}}_{ \substack{\tau \sim \pi_\boldsymbol\theta} }\!\left[  \frac{\nabla_\boldsymbol\theta\log \pi_\boldsymbol\theta(a_t \mid s_t)^\top\nabla_\boldsymbol\theta\log \pi_\boldsymbol\theta(a_t \mid s_t)}{\pi_\boldsymbol\theta(a_t \mid s_t)^2}  \right] \operatorname*{\mathbb{E}}_{ \substack{\tau \sim \pi_\boldsymbol\theta} }\!\left[  \vphantom{\sum}\big( R_t(\tau) - b(s_t) \big)^2  \right].
+\]</span> While the magnitude of the second term can be reduced using contral variates to set the baseline <span class="math inline">\(b\)</span> as an approximation of the value function, the first term is not so easy to deal with. Importantly, its magnitude scales roughly with <span class="math inline">\(\pi_\boldsymbol\theta(a_t \mid s_t)^{-2}\)</span>, which grows very large for low-probability actions and large trajectories. The only easy way to reduce this variance is to take more Monte Carlo rollouts, which can be prohibativly expensive.</p>
+<p>The high variance of this updates is the major drawback of REINFORCE since we have no guarantee that the optimizer is moving in the right direction, i.e.&nbsp;it’s easy for the expected cumulative discounted rewards to get <em>worse</em> during updates due to unlucky Monte Carlo rollouts. This raises the question of is there a different update step we can use that avoids taking bad update steps?</p>
 </section>
-<section id="trust-region-policy-optimization" class="level1">
-<h1>Trust Region Policy Optimization</h1>
-<p>Taking inspiration from classical optimization algorithms, one approach is to consider a trust region method, where we have some radius within which we “trust” our approximation of the objective function. This would be helpful here, since if we have a high variance step, it would move us far away from our current location, which would be outside the trust region. However, the difficulty with implementing this comes from the fact that we don’t want to have to sample from the new policy (if we were fine with that, we could just stick to REINFORCE). The first natural question to ask then, is can we evaluate the performance of the new policy in terms of the old policy? This is one of the fundamental ideas of <strong>trust region policy optimization</strong> (TRPO) and leads to the definition of the surrogate advantage objective function.</p>
-<section id="sec-surrogate-advantage" class="level2">
-<h2 class="anchored" data-anchor-id="sec-surrogate-advantage">Deriving the Surrogate Advantage</h2>
-<p>If we want to ensure that we take good steps, we need to evaluate the policy. However, if we want to be efficient, we want to avoid actually sampling from that policy. This raises the question of can we express the performance of one policy in terms of another policy? This is the question that motivates the derivation of TRPO’s objective function: surrogate advantage.</p>
-<p>Using the advantage function, linearity of expectation, and the law of total expectation, we can replace <span class="math inline">\(r_t\)</span> with <span class="math inline">\(A^{\pi}(s_t, a_t)\)</span> for any arbitrary policy <span class="math inline">\(\pi\)</span>: <span class="math display">\[
-\begin{align*}
+<section id="sec-trpo" class="level1 page-columns page-full" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Trust Region Policy Optimization</h1>
+<p>Taking inspiration from classical optimization algorithms, one approach is to consider a trust region method, where we have some radius within which we “trust” our approximation of the objective function. This would be helpful here, since if we have a high variance step, it would move us far away from our current location, which would be outside of the trust region. However, the difficulty with implementing this comes from the fact that we don’t want to have to sample from the new policy to calculate this distance (if we were able to that efficiently, then we wouldn’t even need to modify REINFORCE—we could just reject updates if they’re too far away). The first natural question to ask is then can we evaluate the performance of the new policy in terms of the old policy?</p>
+<p>This is the main idea of <strong>trust region policy optimization</strong> (TRPO). All of the following derivations, starting with the surrogate advantage objective function going to the Taylor approximation of the Hessian will all come down to this core idea.</p>
+<section id="sec-surrogate-advantage" class="level2 page-columns page-full" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="sec-surrogate-advantage"><span class="header-section-number">2.1</span> Deriving the Surrogate Advantage</h2>
+<p>Consider an update moving from policy <span class="math inline">\(\pi_\text{old}\)</span> to policy <span class="math inline">\(\pi\)</span>. If we want to ensure the optimizer takes a good step, we need to evaluate <span class="math inline">\(J(\pi)\)</span> and check that it’s greater than <span class="math inline">\(J(\pi_\text{old})\)</span>. However, this is exceedingly expensive, which motivates the question of can we evaluate the performance of <span class="math inline">\(\pi\)</span> using only <span class="math inline">\(\pi_\text{old}\)</span>? To do this, we’ll define a new objective function called the <strong>surrogate advantage</strong>.</p>
+<p>Starting with the expected cumulative discounted rewards <span class="math inline">\(J(\pi)\)</span>, we can replace <span class="math inline">\(r_t\)</span> with <span class="math inline">\(A^{\pi_\text{old}}(s_t, a_t)\)</span>: <span class="math display">\[
+\begin{alignat*}{2}
 J(\pi) &amp;= \operatorname*{\mathbb{E}}_{ \substack{s_0 \sim \rho_0} }\!\left[  V^{\pi}(s_0)  \right] \\
-&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t r_t  \right] \\
-&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t\big( \underbrace{r_t + V^{\pi_\text{old}}(s_{t+1})}_{Q^{\pi_\text{old}}(s_t, a_t)} - V^{\pi_\text{old}}(s_{t+1}) \big)  \right] \\
-&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t\big( \underbrace{Q^{\pi_\text{old}}(s_t, a_t)}_{A^{\pi_\text{old}}(s_t, a_t) + V^{\pi_\text{old}}(s_t)} - V^{\pi_\text{old}}(s_{t+1}) \big)  \right] \\
-&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t \big(A^{\pi_\text{old}}(s_t, a_t) + \underbrace{V^{\pi_\text{old}}(s_t) - V^{\pi_\text{old}}(s_{t+1})}_{\text{cancels to }V^{\pi_\text{old}}{(s_0)}}\big)  \right] \\
-&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t A^{\pi_\text{old}}(s_t, a_t)  \right] + \operatorname*{\mathbb{E}}_{ \substack{s_0 \sim \rho_0} }\!\left[  V^{\pi_\text{old}}(s_0)  \right] \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t r_t  \right] &amp;&amp; \text{(definition of $V^{\pi}$)} \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t\big( r_t + \textcolor{WildStrawberry}{ V^{\pi_\text{old}}(s_{t+1}) - V^{\pi_\text{old}}(s_{t+1}) } \big)  \right] \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t\big( \textcolor{WildStrawberry}{ Q^{\pi_\text{old}}(s_t, a_t) } - V^{\pi_\text{old}}(s_{t+1}) \big)  \right] &amp;&amp; \text{(definition of $Q^{\pi_\text{old}}$)} \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t \big(\textcolor{WildStrawberry}{ A^{\pi_\text{old}}(s_t, a_t) + V^{\pi_\text{old}}(s_t) } - V^{\pi_\text{old}}(s_{t+1})\big)  \right] \qquad &amp;&amp; \text{(definition of $A^{\pi_\text{old}}$)} \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t A^{\pi_\text{old}}(s_t, a_t)  \right] + \textcolor{WildStrawberry}{ \operatorname*{\mathbb{E}}_{ \substack{s_0 \sim \rho_0} }\!\left[  V^{\pi_\text{old}}(s_0)  \right] } &amp;&amp; \text{(telescoping sum)} \\
 &amp;= \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^t A^{\pi_\text{old}}(s_t, a_t)  \right] + J(\pi_\text{old}).
-\end{align*}
-\]</span> This result is known as the <strong><em>performance difference theorem</em></strong>, since it lets us define the performance difference <span class="math inline">\(\mathcal L\)</span> of a policy <span class="math inline">\(\pi\)</span> compared to another policy <span class="math inline">\(\pi_\text{old}\)</span>: <span class="math display">\[
-\mathcal L(\pi; \pi_\text{old}) \mathrel{\mathop{=}\limits^{\text{def}}}J(\pi) - J(\pi_\text{old}) = \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^tA^{\pi_\text{old}}(s_t, a_t)  \right]
-\]</span> Since <span class="math inline">\(J(\pi_\text{old})\)</span> is independent of <span class="math inline">\(\pi\)</span>, we can easily optimize for <span class="math inline">\(\mathcal L(\pi; \pi_\text{old})\)</span> instead of <span class="math inline">\(J(\pi)\)</span> to find the optimal policy. Importantly, we see that we only need to evaluate the advantage policy of the old policy instead of the new policy!</p>
-<p>However, we still need to sample trajectory rollouts from <span class="math inline">\(\pi\)</span>, which doesn’t fix our efficiency issues since to determine whether the update is good or not, we need to rollout sample tgrajectoriers from <span class="math inline">\(\pi\)</span>. To fix this, we’ll have to write the expectation in a different way. It’s difficult to consider trajectories as a whole, but it’s much easier to consider the general distribution of states, i.e.&nbsp;where the agent spends its time. We can formalize this with the state distribution <span class="math inline">\(\rho_\pi\)</span>: <span class="math display">\[
-\rho_\pi(s) \mathrel{\mathop{=}\limits^{\text{def}}}(1 - \gamma) \sum_{t=0}^\infty\gamma^t \Pr(s_t = s \mid s_0 \sim \rho_0, \pi).
-\]</span> Using this distribution, we can rewrite the performance difference<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> as <span class="math display">\[
-\mathcal L(\pi; \pi_\text{old}) = \operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)} }\!\left[  A^{\pi_\text{old}}(s, a)  \right].
+\end{alignat*}
+\]</span> This result is known as the <strong>performance difference lemma</strong>: <span class="math display">\[
+\mathcal L(\pi, \pi_\text{old}) \mathrel{\mathop{=}\limits^{\text{def}}}J(\pi) - J(\pi_\text{old}) = \operatorname*{\mathbb{E}}_{ \substack{\pi} }\!\left[  \sum_{t=0}^\infty\gamma^tA^{\pi_\text{old}}(s_t, a_t)  \right].
+\]</span> Since <span class="math inline">\(J(\pi_\text{old})\)</span> is independent of <span class="math inline">\(\pi\)</span>, we can optimize <span class="math inline">\(\mathcal L(\pi, \pi_\text{old})\)</span> instead of <span class="math inline">\(J(\pi)\)</span> to find the optimal policy. Importantly, we see that we only need to evaluate the advantage of <span class="math inline">\(\pi_\text{old}\)</span> instead of <span class="math inline">\(\pi\)</span>!</p>
+<p>However, to calculate the expectation we still need Monte Carlo rollouts from <span class="math inline">\(\pi\)</span> which is inefficient. To manipulate the expectation, it’s easier to consider individual states as opposed to entire trajectories. To this end we introduce the state distribution <span class="math display">\[
+\rho_\pi(s) \mathrel{\mathop{=}\limits^{\text{def}}}(1 - \gamma) \sum_{t=0}^\infty\gamma^t \Pr(s_t = s \mid s_0 \sim \rho_0, \pi)
+\]</span> and rewrite the performance difference<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> as <span class="math display">\[
+\mathcal L(\pi, \pi_\text{old}) = \operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_\pi \\ a \sim \pi(\cdot \mid s)} }\!\left[  A^{\pi_\text{old}}(s, a)  \right].
+\]</span> In this formulation, there are two distributions being sampled from in the expectation: <span class="math inline">\(\rho_\pi\)</span> and <span class="math inline">\(\pi(\cdot \mid s)\)</span>.</p>
+<div class="no-row-height column-margin column-container"><div id="fn2"><p><sup>2</sup>&nbsp;If it’s not clear why this is possible, there are only two operations happening here: we introduce and distribute the fraction <span class="math inline">\(\frac{1 - \gamma}{1 - \gamma}\)</span>, and we move the policy from the expectation to the probability term in <span class="math inline">\(\rho_\pi\)</span>. The logic is similar to that of the policy gradient theorem proof presented in <a href="http://incompleteideas.net/book/the-book-2nd.html">Sutton &amp; Barto chapter 13</a>.</p></div><div id="fn3"><p><sup>3</sup>&nbsp;We assume that <span class="math inline">\(\pi\)</span> and <span class="math inline">\(\pi_\text{old}\)</span> are both well-behaved, i.e.&nbsp;<span class="math inline">\(\pi(a \mid s) \neq 0\)</span> for all <span class="math inline">\(a \in \mathcal A\)</span> and <span class="math inline">\(s \in \mathcal S\)</span>.</p></div></div><p>Of these, <span class="math inline">\(\pi(\cdot \mid s)\)</span> has a closed-form, e.g.&nbsp;a neural network. Forward passes in neural networks are efficient to compute, so we can use importance sampling to sample from <span class="math inline">\(\pi_\text{old}(\cdot \mid s)\)</span> instead<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>: <span class="math display">\[
+\mathcal L(\pi, \pi_\text{old}) = \operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_\pi \\ \textcolor{WildStrawberry}{ a \sim \pi_\text{old}(\cdot \mid s) }} }\!\left[  \textcolor{WildStrawberry}{ \frac{\pi(a \mid s)}{\pi_\text{old}(a \mid s)} } A^{\pi_\text{old}}(s,a)  \right].
 \]</span></p>
-<p>Importantly, <span class="math inline">\(\pi(\cdot \mid s)\)</span> has a user-specified closed-form, e.g.&nbsp;a neural network. Since a forward pass is easy to compute (it’s the transition dynamcis that are computationally expensive to simulate) we can use importance sampling to sample from <span class="math inline">\(\pi_\text{old}(\cdot \mid s)\)</span> instead: <span class="math display">\[
-\mathcal L(\pi; \pi_\text{old}) = \operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_\pi \\ \textcolor{WildStrawberry}{ a \sim \pi_\text{old}(\cdot \mid s) }} }\!\left[  \textcolor{WildStrawberry}{ \frac{\pi(a \mid s)}{\pi_\text{old}(a \mid s)} } A^{\pi_\text{old}}(s,a)  \right].
-\]</span></p>
-<p>Unfortanantly, since <span class="math inline">\(\rho_\pi\)</span> has no closed-form solution we can’t use importance sampling to sample from <span class="math inline">\(\rho_{\pi_\text{old}}\)</span>, and due to the complexity of the state distribution there are no fancy tricks we can use to rewrite this. So what have we gained be rewriting the optimization problem in terms of <span class="math inline">\(\mathcal L(\pi; \pi_\text{old})\)</span> instead of <span class="math inline">\(J(\pi)\)</span>? Two important things:</p>
-<ol type="1">
-<li>We now only need to evaluate the advantage of <span class="math inline">\(\pi_\text{old}\)</span> instead of <span class="math inline">\(\pi\)</span>, which means we don’t need to train a function approximator <span class="math inline">\(A^{\pi}_\boldsymbol\phi\)</span> for <span class="math inline">\(A^{\pi}\)</span> (as is required in actor-critic methods), we only need to approximate <span class="math inline">\(A^{\pi_\text{old}}\)</span>.</li>
-<li>Instead of sampling from a set of distributions <span class="math inline">\(\pi(\cdot \mid s_t)\)</span> and <span class="math inline">\(p(\cdot, \cdot \mid s_t, a_t)\)</span>, we sample from a single distribution <span class="math inline">\(\rho_\pi\)</span>.</li>
-</ol>
-<p>The second point here is important, since even though we can’t find a closed-form solution to do this sampling, it does let us more efficiently analyze the samples. The main result is the <strong><em>monotone improvement guarantee</em></strong>, which states that if <span class="math inline">\(\rho_\pi\)</span> and <span class="math inline">\(\rho_{\pi_\text{old}}\)</span> are close enough, then we can just sample from <span class="math inline">\(\rho_{\pi_\text{old}}\)</span> instead. This idea of just replacing that sample leads to the <strong><em>surrogate advantage</em></strong> objective function <span class="math inline">\(\widetilde{\mathcal L}\)</span>:</p>
-<p><span class="math display">\[
-\widetilde{\mathcal L}(\pi; \pi_\text{old}) = \operatorname*{\mathbb{E}}_{ \substack{\textcolor{WildStrawberry}{ s \sim \rho_{\pi_\text{old}} } \\ a \sim \pi_\text{old}(\cdot \mid s)} }\!\left[  \frac{\pi(a \mid s)}{\pi_\text{old}(a \mid s)} A^{\pi_\text{old}}(s, a)  \right].
-\]</span></p>
-<p>Primarily, TRPO uses the monotone convergence guarantee<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>, which states that there exists some <span class="math inline">\(\delta \in \mathbb R_{\geq 0}\)</span> such that so long as <span class="math display">\[
-\operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_{\pi_\text{old}}} }\!\left[ D_\text{KL}\left( \vphantom{\sum}\pi_\text{old}(\cdot \mid s) \;\middle\|\; \pi(\cdot \mid s) \right) \right] \leq \delta,
-\]</span> <span class="math inline">\(\pi\)</span> is guaranteed to be better than <span class="math inline">\(\pi_\text{old}\)</span>, i.e.&nbsp;<span class="math inline">\(\mathcal L(\pi; \pi_\text{old}) \geq 0\)</span> or equivilently <span class="math inline">\(J(\pi) \geq J(\pi_\text{old})\)</span>. For convienience, going forward I’ll denote <span class="math display">\[
-\overline{D}_\text{KL}( \pi_\text{old} \;\|\; \pi ) = \operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_{\pi_\text{old}}} }\!\left[ D_\text{KL}\left( \vphantom{\sum}\pi_\text{old}(\cdot \mid s) \;\middle\|\; \pi(\cdot \mid s) \right) \right].
-\]</span></p>
-<p>This result gives us exactly what we wanted: a way to guarantee policy improvement (thus avoiding the high-variance of the REINFORCE estimator) without evaluating the new policy (fixing the sample inneficiency issues). However, this formulation does have some issues of its own, since it’s not clear how to solve this update step: <span class="math display">\[
-\begin{align*}
-\boldsymbol\theta_{k+1} \gets \mathop{\mathrm{argmax}}_{\boldsymbol\theta\in \mathbb R^d}\;&amp; \widetilde{\mathcal L}(\pi_\boldsymbol\theta; \pi_{\boldsymbol\theta_k}) \\
-\text{s.t. }&amp;\overline{D}_\text{KL}( \pi_{\boldsymbol\theta_k} \;\|\; \pi_\boldsymbol\theta) \leq \delta.
-\end{align*}
-\]</span></p>
+<p>Unfortunately, <span class="math inline">\(\rho_\pi\)</span> has no closed-form solution meaning we can’t use importance sampling to sample from <span class="math inline">\(\rho_{\pi_\text{old}}\)</span>.</p>
+<p>If we consider how policy gradient methods work, they generally take iterative steps leading to a sequence of policies <span class="math inline">\(\{\pi_1, \pi_2, \dots, \pi_k\}\)</span>. Intuitively, each consecutive policy should be decently similar, i.e.&nbsp;<span class="math inline">\(\pi \approx \pi_\text{old}\)</span>. If we make that assumption, then it follows that <span class="math inline">\(\rho_\pi \approx \rho_{\pi_\text{old}}\)</span>. If we replace <span class="math inline">\(\rho_\pi\)</span> with <span class="math inline">\(\rho_{\pi_\text{old}}\)</span> in the performance difference function, then we get the surrogate advantage objective <span class="math display">\[
+\widetilde{\mathcal L}(\pi, \pi_\text{old}) = \operatorname*{\mathbb{E}}_{ \substack{\textcolor{WildStrawberry}{ s \sim \rho_{\pi_\text{old}} } \\ a \sim \pi_\text{old}(\cdot \mid s)} }\!\left[  \frac{\pi(a \mid s)}{\pi_\text{old}(a \mid s)} A^{\pi_\text{old}}(s,a)  \right].
+\]</span> In the surrogate advantage, our expectation is over exclusively <span class="math inline">\(\pi_\text{old}\)</span>, meaning we can reuse Monte Carlo rollouts of <span class="math inline">\(\pi_\text{old}\)</span> without simulating <span class="math inline">\(\pi\)</span>. Additionally, so long as <span class="math inline">\(\pi \approx \pi_\text{old}\)</span> we know that <span class="math inline">\(J(\pi) \approx \widetilde{\mathcal L}(\pi, \pi_\text{old}) + J(\pi_\text{old})\)</span>, meaning that we can estimate <span class="math inline">\(J(\pi)\)</span> while only using <span class="math inline">\(\pi_\text{old}\)</span>. This is exactly what we wanted from our new objective!</p>
 </section>
-<section id="quadratic-trust-region-optimization" class="level2">
-<h2 class="anchored" data-anchor-id="quadratic-trust-region-optimization">Quadratic Trust Region Optimization</h2>
-<p>The update step does have a form similar to other problems, namely a trust region update step. There are existing algorithms to solve these using quadratic Taylor expansions, i.e.&nbsp;using <span class="math display">\[
-\begin{align*}
-\mathbf g_k &amp;= \nabla_\boldsymbol\theta\!\left[ \widetilde{L}(\pi_\boldsymbol\theta, \pi_{\boldsymbol\theta_k}) \right] \\
-\mathbf H_k &amp;= \nabla_\boldsymbol\theta^2 \!\left[ \overline{D}_\text{KL}( \pi_\text{old} \;\|\; \pi ) \right].
-\end{align*}
-\]</span> I won’t go through the specifics, but in essence we can solve this quadratic approximation for an approximate step [TODO]. We can then use a backtracking line search to guarantee that our step satisfies the original constraint.</p>
-</section>
-</section>
-<section id="proximal-policy-optimization" class="level1">
-
-
-
-
-</section>
-
-
-<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">Proximal Policy Optimization</h2><div id="refs" class="references csl-bib-body" data-entry-spacing="0" role="list">
-<div id="ref-Seita_2017" class="csl-entry" role="listitem">
-<div class="csl-left-margin">[1] </div><div class="csl-right-inline">D. Seita, <span>“Going deeper into reinforcement learning: Fundamentals of policy gradients,”</span> Seita’s Place. [Online]. Available: <a href="https://lilianweng.github.io/posts/2018-04-08-policy-gradient/">https://lilianweng.github.io/posts/2018-04-08-policy-gradient/</a></div>
+<section id="the-monotone-convergence-guarantee" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="the-monotone-convergence-guarantee"><span class="header-section-number">2.2</span> The Monotone Convergence Guarantee</h2>
+<p>From <a href="#sec-surrogate-advantage" class="quarto-xref">Section&nbsp;2.1</a>, we know that <span class="math inline">\(w\mathcal L(\pi, \pi_\text{old}) \approx \mathcal L(\pi, \pi_\text{old})\)</span> only if <span class="math inline">\(\pi \approx \pi_\text{old}\)</span>, so we need some way to formalize when this is true. The standard way to measure the similarity of probability distributions is the Kullback-Leibler divergence <span class="math display">\[
+D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old}(\cdot \mid s) \,\|\, \pi(\cdot \mid s) \vphantom{\big(} \right) \mathrel{\mathop{=}\limits^{\text{def}}}\operatorname*{\mathbb{E}}_{ \substack{a \sim \pi_\text{old}(\cdot \mid s)} }\!\left[ \log\left(\frac{\pi_\text{old}(a \mid s)}{\pi(a \mid s)}\right) \right].
+\]</span></p>
+<p>However, the policy can change for each state, so we need a way to aggregate the KL divergence into a single measurement. Mathematically, it’s easiest to use the worst-case divergence <span class="math display">\[
+D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right) = \max_{s \in \mathcal S} D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old}(\cdot \mid s) \,\|\, \pi(\cdot \mid s) \vphantom{\big(} \right).
+\]</span> Intuitively, this states that even if <span class="math inline">\(\pi\)</span> and <span class="math inline">\(\pi_\text{old}\)</span> normally take the same action, if there’s even one state where they differ that will be reflected in <span class="math inline">\(D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span>. This makes sense for reinforcement learning, where there’s often a few critical states (e.g.&nbsp;a cliff that the agent could fall off of), and we may not be sure which states those are.</p>
+<p>Using the worst-case KL divergence, <a href="https://arxiv.org/abs/1502.05477">the paper <em>Trust Region Policy Optimization</em> by Schulman et. al.</a> proves the monotone convergence theorem:</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
 </div>
-<div id="ref-Yang_2017" class="csl-entry" role="listitem">
-<div class="csl-left-margin">[2] </div><div class="csl-right-inline">R. Yang, <span>“Policy optimization with monotonic improvement guarantee.”</span> [Online]. Available: <a href="https://runzhe-yang.science/2017-05-25-TRPO/">https://runzhe-yang.science/2017-05-25-TRPO/</a></div>
+<div class="callout-title-container flex-fill">
+Monotone Convergence Theorem
 </div>
-</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+</div>
+<div class="callout-body-container callout-body">
+<div id="thm-monotone-convergence" class="theorem">
+<p><span class="theorem-title"><strong>Theorem 1 (Monotone Convergence)</strong></span> For two policies <span class="math inline">\(\pi, \pi_\text{old}\in \Pi\)</span> we have that <span class="math display">\[
+\mathcal L(\pi, \pi_\text{old}) \geq \widetilde{\mathcal L}(\pi, \pi_\text{old}) - CD_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right),
+\]</span> where <span class="math inline">\(C\)</span> is a function of the discount factor <span class="math inline">\(\gamma\)</span> and the maximum advantage of <span class="math inline">\(\pi_\text{old}\)</span>.</p>
+</div>
+</div>
+</div>
+<p>This means that if we use the update step <span id="eq-penalized-update"><span class="math display">\[
+\pi_\text{new}\gets \mathop{\mathrm{argmax}}_{\pi \in \Pi}\; \widetilde{\mathcal L}(\pi, \pi_\text{old}) - CD_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)
+\tag{2}\]</span></span> we will always converge to the optimal policy since <a href="#eq-penalized-update" class="quarto-xref">Equation&nbsp;2</a> is bounded by zero when <span class="math inline">\(\pi=\pi_\text{old}\)</span>, i.e.&nbsp;it must be true that <span class="math inline">\(J(\pi_0) \leq J(\pi_1) \leq \cdots \leq J(\pi_k)\)</span>.</p>
+<p>This theorem clearly fixes the issue of knowing when <span class="math inline">\(\pi \approx \pi_\text{old}\)</span>, since the <span class="math inline">\(CD_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span> acts as a penalty parameter, reducing our improvement as we get further from <span class="math inline">\(\pi_\text{old}\)</span>. However, this also fixes the original policy gradient problem of high variance! Since we now control how far away <span class="math inline">\(\pi\)</span> and <span class="math inline">\(\pi_\text{old}\)</span> are, we can be confident that our step is a good one!</p>
+<p>This is why the penalty term is the worst-case KL divergence, since it measures the distance in policy space and not the parameter space. If we were to instead use a parameter space measure like the <span class="math inline">\(\ell_2\)</span> norm <span class="math inline">\(\frac{1}{2}\|\boldsymbol\theta- \boldsymbol\theta_\text{old}\|^2\)</span>, the resulting policies could still be different since they’re non-linear in <span class="math inline">\(\boldsymbol\theta\)</span>. In essence, <span class="math inline">\(\boldsymbol\theta\approx \boldsymbol\theta_\text{old}\)</span> does not imply that <span class="math inline">\(\pi \approx \pi_\text{old}\)</span>, which was causing the high variance of the policy gradient updates!</p>
+<p>However, while this update is theoretically sound it’s difficult to implement. The first issue is that since the <span class="math inline">\(C\)</span> parameter depends on the maximum advantage of <span class="math inline">\(\pi_\text{old}\)</span>, it’s intractable to calculate for large or unbounded state spaces. Ideally, we could set <span class="math inline">\(C\)</span> as a global hyperparameter, but this proves to be difficult. Intuitively, this is because <span class="math inline">\(C\)</span> directly affects both the divergence term and the surrogate advantage term. For one update, a value of <span class="math inline">\(C = 10^{-3}\)</span> could be large relative to the surrogate advantage, and for another it could be small, even if the worst-case divergence is the same.</p>
+<p>In practice, we rewrite <a href="#eq-penalized-update" class="quarto-xref">Equation&nbsp;2</a> as an equivalent <a href="https://en.wikipedia.org/wiki/Duality_(optimization)">dual constrained optimization problem</a> <span id="eq-constrained-update"><span class="math display">\[
+\pi_\text{new}\gets \mathop{\mathrm{argmax}}_{\pi \in \Pi}\; \widetilde{\mathcal L}(\pi, \pi_\text{old}) \text{ such that }D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right) \leq \delta,
+\tag{3}\]</span></span> which replaces the <span class="math inline">\(C\)</span> parameter with a <span class="math inline">\(\delta\)</span> parameter that also depends on <span class="math inline">\(\gamma\)</span> and the maximum advantage. However, because the <span class="math inline">\(\delta\)</span> parameter is exclusively in the constraint it’s easier to set as a global hyperparameter. Intuitively, since it doesn’t impact the surrogate advantage it will always directly bound the worst-case divergence the same, no matter where in policy space you are.</p>
+<div id="fig-penalized-update" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-penalized-update-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="penalized.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;1: A visualization of the monotone convergence theorem. Note how each surrogate \widetilde{\mathcal L}(\pi, \pi_i) + J(\pi_i) - CD_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_i \,\|\, \pi \vphantom{\big(} \right) is tangent to the true rewards J(\pi) at the old policy \pi_i, i.e.&nbsp;it’s a local approximation. The CD_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_i \,\|\, \pi \vphantom{\big(} \right) acts as a penalty term decreasing the rewards the further out the approximation is. Due to the penalty, the inequality holds over the entire function (though I’ve only plotted a subset of the domain here to make the diagram clearer)."><img src="penalized.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-penalized-update-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: A visualization of the monotone convergence theorem. Note how each surrogate <span class="math inline">\(\widetilde{\mathcal L}(\pi, \pi_i) + J(\pi_i) - CD_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_i \,\|\, \pi \vphantom{\big(} \right)\)</span> is tangent to the true rewards <span class="math inline">\(J(\pi)\)</span> at the old policy <span class="math inline">\(\pi_i\)</span>, i.e.&nbsp;it’s a local approximation. The <span class="math inline">\(CD_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_i \,\|\, \pi \vphantom{\big(} \right)\)</span> acts as a penalty term decreasing the rewards the further out the approximation is. Due to the penalty, the inequality holds over the entire function (though I’ve only plotted a subset of the domain here to make the diagram clearer).
+</figcaption>
+</figure>
+</div>
+<div id="fig-constrained-update" class="lightbox quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-constrained-update-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<a href="constrained.svg" class="lightbox" data-gallery="quarto-lightbox-gallery-2" title="Figure&nbsp;2: A visualization of the monotone convergence theorem using the constrained update formulation. Note how the surrogate \widetilde{\mathcal L}(\pi, \pi_i) + J(\pi_i) is not longer strictly below J(\pi). However, at the optimal point within the trust region, this bound holds and gives an equivalent policy as Figure&nbsp;1."><img src="constrained.svg" class="img-fluid figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-constrained-update-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: A visualization of the monotone convergence theorem using the constrained update formulation. Note how the surrogate <span class="math inline">\(\widetilde{\mathcal L}(\pi, \pi_i) + J(\pi_i)\)</span> is not longer strictly below <span class="math inline">\(J(\pi)\)</span>. However, at the optimal point within the trust region, this bound holds and gives an equivalent policy as <a href="#fig-penalized-update" class="quarto-xref">Figure&nbsp;1</a>.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="quadratic-trust-region-optimization" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="quadratic-trust-region-optimization"><span class="header-section-number">2.3</span> Quadratic Trust Region Optimization</h2>
+<p>Unfortunately, it’s not clear how to actually solve for the update in <a href="#eq-constrained-update" class="quarto-xref">Equation&nbsp;3</a>. Theoretically, there are closed form solutions for constrained optimization problems with linear objectives and quadratic constraints, so if we approximate <span class="math inline">\(\widetilde{\mathcal L}(\pi, \pi_\text{old})\)</span> with a linear function and <span class="math inline">\(D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span> with a quadratic function we can use the closed-form update. Additionally, at each update we’ve calculated and simulated <span class="math inline">\(\pi_\text{old}\)</span>, so we have access to Monte Carlo rollouts and an advantage estimate. Since we’re only considering policies <span class="math inline">\(\pi\)</span> that are close to <span class="math inline">\(\pi_\text{old}\)</span> due to the worst-case divergence constraint, we can use Taylor series approximations to estimate <span class="math inline">\(\widetilde{\mathcal L}(\pi, \pi_\text{old})\)</span> and <span class="math inline">\(D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span>.</p>
+<section id="approximating-d_textklmax-left-vphantombig-pi_textold-pi-vphantombig-right" class="level3" data-number="2.3.1">
+<h3 data-number="2.3.1" class="anchored" data-anchor-id="approximating-d_textklmax-left-vphantombig-pi_textold-pi-vphantombig-right"><span class="header-section-number">2.3.1</span> Approximating <span class="math inline">\(D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span></h3>
+<p>Since <span class="math inline">\(D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span> is a maximum over the state space, we need to enumerate every element which is intractable for large or unbounded state spaces. In policy gradient methods, we generally interact with the environment using Monte Carlo rollouts, so let’s instead consider the expected divergence <span class="math display">\[
+\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right) \mathrel{\mathop{=}\limits^{\text{def}}}\operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_{\pi_\text{old}}} }\!\left[ D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old}(\cdot \mid s) \,\|\, \pi(\cdot \mid s) \vphantom{\big(} \right) \right].
+\]</span> If we approximate <span class="math inline">\(D_\text{KL}^{\max} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span> with <span class="math inline">\(\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span> then it’s possible that this misses some key states with high divergence, but overall it will accomplish the same result of stopping the new policy from straying too far from the old policy.</p>
+<p>The second-order Taylor approximation of <span class="math inline">\(\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span> centered at <span class="math inline">\(\pi=\pi_\text{old}\)</span> is <span class="math display">\[
+\begin{align*}
+\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right) &amp;\approx \left[\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\right]_{\pi=\pi_\text{old}} \\
+&amp;\quad +\; (\boldsymbol\theta- \boldsymbol\theta_\text{old})^\top \nabla_\boldsymbol\theta\left[\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\right]_{\pi = \pi_\text{old}} \\
+&amp;\quad +\; \frac{1}{2}(\boldsymbol\theta- \boldsymbol\theta_\text{old})^\top\nabla_\boldsymbol\theta^2\left[\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\right]_{\pi = \pi_\text{old}}(\boldsymbol\theta- \boldsymbol\theta_\text{old})
+\end{align*}
+\]</span> It’s clear that <span class="math inline">\(\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi_\text{old} \vphantom{\big(} \right) = 0\)</span>, which drops out. Additionally, some algebra shows that <span class="math inline">\(\nabla_\boldsymbol\theta\left[\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\right]_{\pi=\pi_\text{old}} = \mathbf 0\)</span>, causing the first-order term to drop out as well. Thus, the second-order approximation is completely determined by the Hessian matrix <span class="math display">\[
+\mathbf H= \nabla_\boldsymbol\theta^2\left[\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\right]_{\pi=\pi_\text{old}} = -\operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_{\pi_\text{old}} \\ a \sim \pi_\text{old}(\cdot \mid s)} }\!\left[ \nabla_\boldsymbol\theta^2 \log \pi(a \mid s) \right].
+\]</span> Thus, our final approximation is <span id="eq-second-order-divergence"><span class="math display">\[
+\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right) \approx \frac{1}{2}(\boldsymbol\theta- \boldsymbol\theta_\text{old})^\top \mathbf H(\boldsymbol\theta- \boldsymbol\theta_\text{old}).
+\tag{4}\]</span></span></p>
+</section>
+<section id="approximating-widetildemathcal-lpi-pi_textold" class="level3" data-number="2.3.2">
+<h3 data-number="2.3.2" class="anchored" data-anchor-id="approximating-widetildemathcal-lpi-pi_textold"><span class="header-section-number">2.3.2</span> Approximating <span class="math inline">\(\widetilde{\mathcal L}(\pi, \pi_\text{old})\)</span></h3>
+<p>The first-order Taylor expansion centered at <span class="math inline">\(\pi=\pi_\text{old}\)</span> (ignoring the constant term since it doesn’t afffect optimization) is <span class="math display">\[
+\begin{align*}
+\mathbf g&amp;= \nabla_\boldsymbol\theta\widetilde{\mathcal L}(\pi, \pi_\text{old}) \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_{\pi_\text{old}} \\ a \sim \pi_\text{old}(\cdot \mid s)} }\!\left[ \nabla_\boldsymbol\theta\frac{\pi(a \mid s)}{\pi_\text{old}(a \mid s)} A^{\pi_\text{old}}(s, a) \right] \\
+&amp;= \operatorname*{\mathbb{E}}_{ \substack{s \sim \rho_{\pi_\text{old}} \\ a \sim \pi_\text{old}(\cdot \mid s)} }\!\left[ A^{\pi_\text{old}}(s, a) \nabla_\boldsymbol\theta\log \pi(a \mid s) \right].
+\end{align*}
+\]</span> This is actually the same as <span class="math inline">\(\nabla_\boldsymbol\theta J(\pi_\text{old})\)</span> from the policy gradient theorem (see <a href="http://incompleteideas.net/book/the-book-2nd.html">Sutton &amp; Barto, chapter 13</a>), providing further justification that <span class="math inline">\(\widetilde{\mathcal L}(\pi, \pi_\text{old})\)</span> is a good stand-in for <span class="math inline">\(J(\pi)\)</span>. Our final estimate is then <span id="eq-first-order-surrogate-advantage"><span class="math display">\[
+\widetilde{\mathcal L}(\pi, \pi_\text{old}) \approx (\boldsymbol\theta- \boldsymbol\theta_\text{old})^\top\mathbf g.
+\tag{5}\]</span></span></p>
+</section>
+<section id="solving-the-update-step" class="level3" data-number="2.3.3">
+<h3 data-number="2.3.3" class="anchored" data-anchor-id="solving-the-update-step"><span class="header-section-number">2.3.3</span> Solving the Update Step</h3>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+How do we efficiently calculate the inverse of the Hessian?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Calculating <span class="math inline">\(\mathbf H^{-1}\mathbf g\)</span> is normally <span class="math inline">\(\mathcal O(d^3)\)</span> time. Instead, since the Hessian is the expected <a href="https://en.wikipedia.org/wiki/Fisher_information">Fisher information matrix</a> of the policy we can implement Hessian products as the operator <span class="math display">\[
+\mathbf H\mathbf x= \nabla_\boldsymbol\theta\!\left[ \left(\nabla_\boldsymbol\theta\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\right)^\top\mathbf x\right].
+\]</span> Using a <a href="https://en.wikipedia.org/wiki/Krylov_subspace">Krylov subspace method</a> like <a href="https://en.wikipedia.org/wiki/Conjugate_gradient_method">conjugate gradient</a>, we can use this to calculate <span class="math inline">\(\mathbf H^{-1}\mathbf g\)</span> with a time complexity of roughly <span class="math inline">\(\mathcal O\!\left(d\sqrt{\kappa(\mathbf H)}\right)\)</span>. Importantly, this only requires access to <span class="math inline">\(\nabla_\boldsymbol\theta\log \pi(a \mid s)\)</span>, which is easy to calculate for even complex policies using automatic differentiation.</p>
+</div>
+</div>
+<p>Using the approximations <a href="#eq-first-order-surrogate-advantage" class="quarto-xref">Equation&nbsp;5</a> and <a href="#eq-second-order-divergence" class="quarto-xref">Equation&nbsp;4</a>, we form the update step <span class="math display">\[
+\boldsymbol\theta_\text{new}\gets \mathop{\mathrm{argmax}}_{\boldsymbol\theta\in \mathbb R^d}\, \mathbf g^\top(\boldsymbol\theta- \boldsymbol\theta_\text{old}) \text{ such that }\frac{1}{2}(\boldsymbol\theta- \boldsymbol\theta_\text{old})^\top\mathbf H(\boldsymbol\theta- \boldsymbol\theta_\text{old}) \leq \delta
+\]</span> which has the closed-form solution <span class="math display">\[
+\boldsymbol\theta_\text{new}\gets \boldsymbol\theta_\text{old}+ \left(\sqrt{\frac{2 \delta}{\mathbf g^\top\mathbf H^{-1}\mathbf g}}\right) \mathbf H^{-1}\mathbf g
+\]</span> Interestingly, this has the form of a <a href="https://andrewcharlesjones.github.io/journal/natural-gradients.html">natural gradient</a> update, which is similar to a standard gradient descent update but accounts for the curvature of the policy space. However, since we approximated <span class="math inline">\(\overline D_\text{KL}^{} \!\left( \vphantom{\big(} \pi_\text{old} \,\|\, \pi \vphantom{\big(} \right)\)</span>, it’s possible that <span class="math inline">\(\boldsymbol\theta_\text{new}\)</span> may not satisfy the constraint. Luckily this is simple to fix with a backtracking line search (see <a href="https://www.math.uci.edu/~qnie/Publications/NumericalOptimization.pdf">Nocedal &amp; Wright chapter 3</a>), where we introduce some <span class="math inline">\(\alpha \in (0, 1]\)</span> and choose the largest <span class="math inline">\(\alpha\)</span> such that <span id="eq-backtracking-update"><span class="math display">\[
+\boldsymbol\theta_\text{new}\gets \boldsymbol\theta_\text{old}+ \alpha\!\left(\sqrt{\frac{2 \delta}{\mathbf g^\top\mathbf H^{-1}\mathbf g}}\right) \mathbf H^{-1}\mathbf g
+\tag{6}\]</span></span> satisfies the expected divergence constraint. Now we have an update that we can efficiently calculate that approximately satisfies <a href="#thm-monotone-convergence" class="quarto-xref">Theorem&nbsp;1</a>!</p>
+</section>
+</section>
+<section id="what-have-we-accomplished" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="what-have-we-accomplished"><span class="header-section-number">2.4</span> What Have we Accomplished?</h2>
+<p>We now have <a href="#eq-backtracking-update" class="quarto-xref">Equation&nbsp;6</a> which we can solve efficiently by only evaluating and sampling from <span class="math inline">\(\pi_\text{old}\)</span>. This update is guaranteed to satisfy the expected divergence constraint in <a href="#eq-constrained-update" class="quarto-xref">Equation&nbsp;3</a> due to the backtracking line search, but uses a first-order approximation (<a href="#eq-first-order-surrogate-advantage" class="quarto-xref">Equation&nbsp;5</a>) of the surrogate advantage. Assuming that this approximation is good enough, the monotone convergence theorem (<a href="#thm-monotone-convergence" class="quarto-xref">Theorem&nbsp;1</a>) guarantees that this update will converge, fixing our issue with vanilla policy gradients!</p>
+</section>
+</section>
+<section id="sec-ppo" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Proximal Policy Optimization</h1>
+<p>While TRPO has nice theoretical guarantees, the complicated update step means it can be slow in practice. Proximal policy optimization (PPO) fixes this by replacing the divergence constraint in <a href="#eq-constrained-update" class="quarto-xref">Equation&nbsp;3</a> with a much simpler clipping process.</p>
+<p>It minimizes the objective <span class="math display">\[
+\mathcal L_\text{PPO}(\boldsymbol\theta) = \operatorname*{\mathbb{E}}_{ \substack{t} }\!\left[ A^{\pi_\text{old}}(s, a)\min\left\{\frac{\pi(a \mid s)}{\pi_\text{old}(a \mid s)}, \text{clip}\left(\frac{\pi(a \mid s)}{\pi_\text{old}(a \mid s)}, 1 - \varepsilon, 1 + \varepsilon\right)\right\} \right]
+\]</span> directly with a first order optimizer like stochastic gradient descent or <a href="https://arxiv.org/abs/1412.6980">ADAM</a>.</p>
+</section>
+<section id="conclusion" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Conclusion</h1>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 13%">
+<col style="width: 24%">
+<col style="width: 38%">
+<col style="width: 24%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Algorithm</th>
+<th>Update Rule</th>
+<th>Stability</th>
+<th>Optimizer</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>REINFORCE (<a href="#sec-reinforce" class="quarto-xref">Section&nbsp;1</a>)</td>
+<td>Monte Carlo</td>
+<td>Low stability; high variance</td>
+<td>SGD</td>
+</tr>
+<tr class="even">
+<td>TRPO (<a href="#sec-trpo" class="quarto-xref">Section&nbsp;2</a>)</td>
+<td>Constrained KL</td>
+<td>Trust region ensures stability</td>
+<td>Conjugate gradient</td>
+</tr>
+<tr class="odd">
+<td>PPO (<a href="#sec-ppo" class="quarto-xref">Section&nbsp;3</a>)</td>
+<td>Clipped importance</td>
+<td>Approximate trust region</td>
+<td>ADAM</td>
+</tr>
+</tbody>
+</table>
 
-<ol>
-<li id="fn1"><p>If it’s not clear why this is possible, there are only two operations happening here: we introduce and distribute the fraction <span class="math inline">\(\frac{1 - \gamma}{1 - \gamma}\)</span>, and we move the policy from the expectation to the probability term in <span class="math inline">\(\rho_\pi\)</span>. The logic is similar to that of the policy gradient theorem proof presented in <span class="citation" data-cites="Seita_2017"><a href="#ref-Seita_2017" role="doc-biblioref">[1]</a></span>.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-<li id="fn2"><p>While the technical details are too advanced to cover here, see <span class="citation" data-cites="Yang_2017"><a href="#ref-Yang_2017" role="doc-biblioref">[2]</a></span> for a good overview.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
-</ol>
-</section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{gebo2025,
-  author = {Gebo, Evan},
-  title = {REINFORCE},
-  date = {2025-08-23},
-  langid = {en}
-}
-</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></section></div></main> <!-- /main -->
+
+</section>
+
+
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
-    // Ensure there is a toggle, if there isn't float one in the top right
-    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
-      const a = window.document.createElement('a');
-      a.classList.add('top-right');
-      a.classList.add('quarto-color-scheme-toggle');
-      a.href = "";
-      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
-      const i = window.document.createElement("i");
-      i.classList.add('bi');
-      a.appendChild(i);
-      window.document.body.appendChild(a);
-    }
-    setColorSchemeToggle(hasAlternateSentinel())
     const icon = "";
     const anchorJS = new window.AnchorJS();
     anchorJS.options = {
@@ -978,6 +936,38 @@ J(\pi) &amp;= \operatorname*{\mathbb{E}}_{ \substack{s_0 \sim \rho_0} }\!\left[ 
   });
   </script>
 </div> <!-- /content -->
+<script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script>
 
 
 

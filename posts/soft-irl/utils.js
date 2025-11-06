@@ -95,38 +95,6 @@ function finite_differences(x, y, f, h = 1e-6) {
     return [dfdx, dfdy];
 }
 
-const katexCache = new Map();
-
-function renderKaTeX(tex, node, fontSize = 14) {
-    if (!katexCache.has(tex)) {
-        const tmp = document.createElement("div");
-        katex.render(tex, tmp, { throwOnError: false });
-        katexCache.set(tex, tmp.innerHTML);
-    }
-    node.innerHTML = katexCache.get(tex);
-    node.style.fontSize = `${fontSize}px`;
-}
-
-function katexFO(parent, { x=0, y=0, tex="", anchor="start", fontSize=14 } = {}) {
-    const fo = parent.append("foreignObject")
-        .attr("x", x)
-        .attr("y", y)
-        .attr("width", 1)
-        .attr("height", 1)
-        .attr("class", "katex-fo");
-    const div = fo.append("xhtml:div")
-        .style("display", "inline-block")
-        .style("line-height", "1");
-    renderKaTeX(tex, div.node(), fontSize);
-    const {width, height} = div.node().getBoundingClientRect();
-    fo.attr("width", width).attr("height", height);
-    const dx = (anchor === "middle") ? -width/2 : (anchor === "end") ? -width : 0;
-    const dy = -height/2;
-    console.log(x, y, width, height, dx, dy);
-    fo.attr("transform", `translate(${dx}, ${dy})`);
-    return fo;
-}
-
 window.UTILS = {
     rotationMatrix,
     psdMatrix,
@@ -135,8 +103,7 @@ window.UTILS = {
     getThresholds,
     finite_differences,
     clamp,
-    generateGrid,
-    katexFO
+    generateGrid
 };
 
 window.GLOBAL_STATE = window.GLOBAL_STATE || {
