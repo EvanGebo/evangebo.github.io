@@ -1,17 +1,21 @@
 ---
 title: "Trust Region Policy Optimization"
 author: "Evan Gebo"
-date: "2025-08-23"
+date: "2025-11-06"
 categories: [reinforcement learning, machine learning]
 navbar: true
-image: "trust-region.jpg"
-description: "An theoretical introduction to the fallbacks of policy gradient methods, and how trust region policy optimization and proximal policy optimization help stabilize the policy updates."
+image: "kl_divergence_3d.png"
+description: "A theoretical introduction to the fallbacks of policy gradient methods, and how trust region policy optimization and proximal policy optimization help stabilize the policy updates."
 ---
 
 ::: {.hidden}
 $$
 \DeclareMathOperator*{\argmax}{argmax}
 \DeclareMathOperator*{\argmin}{argmin}
+
+\newcommand{\colorA}[1]{\color[RGB]{255,193,7}{ #1 }}
+\newcommand{\colorB}[1]{\color[RGB]{213,94,0}{ #1 }}
+\newcommand{\colorC}[1]{\color[RGB]{216,27,96}{ #1 }}
 
 \newcommand{\focus}[1]{\textcolor{WildStrawberry}{ #1 }}
 \newcommand{\focusA}[1]{\textcolor{WildStrawberry}{ #1 }}
@@ -61,24 +65,6 @@ $$
 <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.2/lib/browser/math.js"></script>
 ```
 :::
-
-| Notation                                     | Definition                                                                             |
-|:--------------------------------------------:|:---------------------------------------------------------------------------------------|
-| $\pi \in \Pi$                                | Polic $\pi$ in policy space $\Pi$                                                      |
-| $a \in \AA$                                  | Action $a$ in action space $\AA$                                                       |
-| $s \in \SS$                                  | State $s$ in state space $\SS$                                                         |
-| $r \in \R$                                   | Reward $r$ in reward space $\R$                                                        |
-| $V^\pi(s)$                                   | Value function for policy $\pi$                                                        |
-| $Q^\pi(s, a)$                                | Action-value function for policy $\pi$                                                 |
-| $A^\pi(s, a)$                                | Advantage function for policy $\pi$                                                    |
-| $J(\pi)$                                     | Expected discounted reward objective                                                   |
-| $\LL(\pi, \pi')$                             | Performance difference objective                                                       |
-| $\wLL(\pi, \pi')$                            | Surrogate advantage objective                                                          |
-| $\DKL{\pi(\cdot \mid s)}{\pi'(\cdot \mid s)}$ | KL divergence between $\pi$ and $\pi'$ for state $s \in \SS$                           |
-| $\DKL[\max]{\pi}{\pi'}$                      | Maximum KL divergence between $\pi$ and $\pi'$ over all states $s \in \SS$             |
-| $\overline\DKL{\pi}{\pi'}$                   | Expected KL divergence between $\pi$ and $\pi'$ over the state distribution $\rho_\pi$ |
-
-: Common notation. Most is standard, except I distinguish the performance difference $\LL$ from the surrogate advantage $\wLL$, and I implicitely parameterize $\pi\new$, $\pi$, and $\pi\old$ by $\t\new$, $\t$, and $\t\old$ respectively. {#tbl-notation}
 
 Consider a infinite-horizon[^horizon] Markov decision process $\MM$ with states $s \in \SS$, actions $a \in \AA$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition dynamics $p(s', r \mid s, a)$, and initial state distribution $\rho_0(s)$. In reinforcement learning, we learn a policy $\pi \in \Pi$ that  maximizes the expected cumulative discounted rewards
 $$
@@ -174,7 +160,7 @@ Unfortunately, $\rho_\pi$ has no closed-form solution meaning we can't use impor
 If we consider how policy gradient methods work, they generally take iterative steps leading to a sequence of policies $\{\pi_1, \pi_2, \dots, \pi_k\}$. Intuitively, each consecutive policy should be decently similar, i.e. $\pi \approx \pi\old$. If we make that assumption, then it follows that $\rho_\pi \approx \rho_{\pi\old}$. If we replace $\rho_\pi$ with $\rho_{\pi\old}$ in the performance difference function, then we get the surrogate advantage objective
 $$
 \wLL(\pi, \pi\old) = \E[\focus{s \sim \rho_{\pi\old}} \\ a \sim \pi\old(\cdot \mid s)]{ \frac{\pi(a \mid s)}{\pi\old(a \mid s)} \A[\pi\old](s,a) }.
-$$
+$$ {#eq-surrogate-advantage}
 In the surrogate advantage, our expectation is over exclusively $\pi\old$, meaning we can reuse Monte Carlo rollouts of $\pi\old$ without simulating $\pi$. Additionally, so long as $\pi \approx \pi\old$ we know that $J(\pi) \approx \wLL(\pi, \pi\old) + J(\pi\old)$, meaning that we can estimate $J(\pi)$ while only using $\pi\old$. This is exactly what we wanted from our new objective!
 
 ## The Monotone Convergence Guarantee
@@ -222,9 +208,9 @@ $$
 $$ {#eq-constrained-update}
 which replaces the $C$ parameter with a $\delta$ parameter that also depends on $\gamma$ and the maximum advantage. However, because the $\delta$ parameter is exclusively in the constraint it's easier to set as a global hyperparameter. Intuitively, since it doesn't impact the surrogate advantage it will always directly bound the worst-case divergence the same, no matter where in policy space you are.
 
-![A visualization of the monotone convergence theorem. Note how each surrogate $\wLL(\pi, \pi_i) + J(\pi_i) - C\DKL[\max]{\pi_i}{\pi}$ is tangent to the true rewards $J(\pi)$ at the old policy $\pi_i$, i.e. it's a local approximation. The $C\DKL[\max]{\pi_i}{\pi}$ acts as a penalty term decreasing the rewards the further out the approximation is. Due to the penalty, the inequality holds over the entire function (though I've only plotted a subset of the domain here to make the diagram clearer).](penalized.svg){#fig-penalized-update .lightbox}
+<!-- ![A visualization of the monotone convergence theorem. Note how each surrogate $\wLL(\pi, \pi_i) + J(\pi_i) - C\DKL[\max]{\pi_i}{\pi}$ is tangent to the true rewards $J(\pi)$ at the old policy $\pi_i$, i.e. it's a local approximation. The $C\DKL[\max]{\pi_i}{\pi}$ acts as a penalty term decreasing the rewards the further out the approximation is. Due to the penalty, the inequality holds over the entire function (though I've only plotted a subset of the domain here to make the diagram clearer).](penalized.svg){#fig-penalized-update}
 
-![A visualization of the monotone convergence theorem using the constrained update formulation. Note how the surrogate $\wLL(\pi, \pi_i) + J(\pi_i)$ is not longer strictly below $J(\pi)$. However, at the optimal point within the trust region, this bound holds and gives an equivalent policy as @fig-penalized-update.](constrained.svg){#fig-constrained-update .lightbox}
+![A visualization of the monotone convergence theorem using the constrained update formulation. Note how the surrogate $\wLL(\pi, \pi_i) + J(\pi_i)$ is not longer strictly below $J(\pi)$. However, at the optimal point within the trust region, this bound holds and gives an equivalent policy as @fig-penalized-update.](constrained.svg){#fig-constrained-update} -->
 
 ## Quadratic Trust Region Optimization
 
@@ -295,24 +281,26 @@ $$
 $$ {#eq-backtracking-update}
 satisfies the expected divergence constraint. Now we have an update that we can efficiently calculate that approximately satisfies @thm-monotone-convergence!
 
+## Comparing KL Divergence to Euclidean Distance
+
+To visualize this, let's consider an MDP with a single state $\SS = \{s\}$ and two actions $\AA = \{ a_1, a_2\}$. We'll visualize a stochastic policy $\pi$ with two parameters $x, y \in \R$.
+
+On the left of @fig-kl-divergence-contour we plot the contours of $\pi_{x,y}(a = a_1 \mid s)$, i.e. the probability that we take action $a_1$ when $\pi$ is parameterized by different $x, y$ values. On the right we consider a specific policy $\pi\old$ parameterized by $x=1$ and $y=1.1$ and plot the KL divergence of this policy against the KL divergence of other policies.
+
+Using standard $\ell_2$ regularized policy gradient methods, a REINFORCE update would correspond to finding the optimal policy in the constrainted $\ell_2$ ball $\colorC{\frac{1}{2}\|\t - \t\old\|^2 \leq \delta}$. Notice how there's high variance in the KL divergence values inside of this ball, implying that the update may not be stable. We can see on the left that the probability values $\pi(a = a_1 \mid s)$ also change rapidly inside this region.
+
+Compared against the ball of bounded KL divergence $\colorA{\overline\DKL{\pi\old}{\pi} \leq \delta}$, we see they are aligned very differently, and that there's a long stretch of polcies that would be considered stable updates with similar policy values and thus bounded importance sampling ratios. Of course, we can't calculate $\overline\DKL{\pi\old}{\pi}$ directly, so we consider the quadratic approximation $\colorB{\frac{1}{2}(\t - \t\old)^\top\H(\t - \t\old) \leq \delta}$, which aligns much better with the true stable region.
+
+![A visualization of the KL divergence constraint compared to the standard Euclidean constraint.](kl_divergence_contour.svg){#fig-kl-divergence-contour}
+
 ## What Have we Accomplished?
 
 We now have @eq-backtracking-update which we can solve efficiently by only evaluating and sampling from $\pi\old$. This update is guaranteed to satisfy the expected divergence constraint in @eq-constrained-update due to the backtracking line search, but uses a first-order approximation (@eq-first-order-surrogate-advantage) of the surrogate advantage. Assuming that this approximation is good enough, the monotone convergence theorem (@thm-monotone-convergence) guarantees that this update will converge, fixing our issue with vanilla policy gradients!
 
 # Proximal Policy Optimization {#sec-ppo}
 
-While TRPO has nice theoretical guarantees, the complicated update step means it can be slow in practice. Proximal policy optimization (PPO) fixes this by replacing the divergence constraint in @eq-constrained-update with a much simpler clipping process.
-
-It minimizes the objective
+While TRPO has nice theoretical guarantees, the complicated update step means it can be slow in practice. Proximal policy optimization (PPO) fixes this by replacing the divergence constraint in @eq-constrained-update with a much simpler clipping process. Recall that the original issue of REINFORCE that TRPO solved was the large magnitudes of the importance sampling ratios. PPO directly solves this, in essence approximating the expected divergence constraint. It uses the a variant of the surrogate advantage objective (@eq-surrogate-advantage)
 $$
-\LL_\text{PPO}(\t) = \E[t]{\A[\pi\old](s, a)\min\left\{\frac{\pi(a \mid s)}{\pi\old(a \mid s)}, \text{clip}\left(\frac{\pi(a \mid s)}{\pi\old(a \mid s)}, 1 - \varepsilon, 1 + \varepsilon\right)\right\}}
+\wLL_\text{PPO}(\pi, \pi\old) = \E[s \sim \rho_{\pi\old} \\ a \sim \pi\old(\cdot \mid s)]{\min\left\{\frac{\pi(a \mid s)}{\pi\old(a \mid s)}\A[\pi\old](s, a), \text{clip}\left(\frac{\pi(a \mid s)}{\pi\old(a \mid s)}, 1 - \varepsilon, 1 + \varepsilon\right)\A[\pi\old](s, a)\right\}}
 $$
-directly with a first order optimizer like stochastic gradient descent or [ADAM](https://arxiv.org/abs/1412.6980).
-
-# Conclusion
-
-| Algorithm | Update Rule        | Stability                      | Optimizer          |
-|-----------|--------------------|--------------------------------|--------------------|
-| REINFORCE (@sec-reinforce) | Monte Carlo        | Low stability; high variance   | SGD                |
-| TRPO (@sec-trpo)      | Constrained KL     | Trust region ensures stability | Conjugate gradient |
-| PPO (@sec-ppo)       | Clipped importance | Approximate trust region       | ADAM               |
+which it minimized directly with gradient descent. In essence, it uses the standard REINFORCE update, except when the importance sampling ratio is too large it clips it down to an upper/lower bound defined by $\varepsilon$. This has the benefit of ensuring stable updates, while still being optimized with standard optimizers like ADAM. In practice, this makes it more popular than TRPO due to the speed increase.
