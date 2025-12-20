@@ -66,20 +66,20 @@ $$
 ```
 :::
 
-Consider a infinite-horizon[^horizon] Markov decision process $\MM$ with states $s \in \SS$, actions $a \in \AA$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition dynamics $p(s', r \mid s, a)$, and initial state distribution $\rho_0(s)$. In reinforcement learning, we learn a policy $\pi \in \Pi$ that  maximizes the expected cumulative discounted rewards
+Consider a infinite-horizon[^horizon] Markov decision process $\MM$ with states $s \in \SS$, actions $a \in \AA$, rewards $r \in \R$, discount factor $\gamma \in (0, 1)$, transition dynamics $p(s', r \mid s, a)$, and initial state distribution $\rho_0(s)$. In reinforcement learning we learn a policy $\pi \in \Pi$ that  maximizes the expected cumulative discounted reward
 $$
 J(\pi) \defeq \E[\start]{\V(s_0)}.
 $$ {#eq-expected-cumulative-discounted-rewards}
-While there are many methods to solve this, a popular approach is using policy gradient methods (see [Sutton & Barto, chapter 13](http://incompleteideas.net/book/the-book-2nd.html)) which use gradient descent to directly optimize $J(\pi)$ using $\nabla_\t J(\pi)$, where the policy $\pi(a \mid s)$ is parametized by some vector $\t \in \R^d$ (e.g. a neural network).
+While there are many methods to solve this, a popular approach is policy gradient algorithms (see [Sutton & Barto, chapter 13](http://incompleteideas.net/book/the-book-2nd.html)) which use gradient descent to directly optimize $J(\pi)$ using $\nabla_\t J(\pi)$, where the policy $\pi(a \mid s)$ is parametized by some vector $\t \in \R^d$ (e.g. a neural network) in some policy space.
 
 [^horizon]: While the analysis is more difficult in the finite-horizon case, the results are the same.
 
 ::: {.callout-tip}
-### Example: Common Policy Spaces
+### **Example:** Common Policy Spaces
 
 One common policy space for discrete state and action spaces is the Boltzmann policy (or softmax policy) parameterized by $\t \in \R^{|\SS| \times |\AA|}$. It's defined for $\pi \in \Pi_\text{boltzmann}$ as
 $$
-\pi(a \mid s) = \frac{\exp(\theta_{s, a})}{\sum_{a' \in \AA} \theta_{s, a'}}.
+\pi(a \mid s) = \frac{\exp\theta_{s, a}}{\sum_{a' \in \AA} \exp\theta_{s, a'}}.
 $$
 
 ---
@@ -118,15 +118,35 @@ This is the main idea of **trust region policy optimization** (TRPO). All of the
 
 Consider an update moving from policy $\pi\old$ to policy $\pi$. If we want to ensure the optimizer takes a good step, we need to evaluate $J(\pi)$ and check that it's greater than $J(\pi\old)$. However, this is exceedingly expensive, which motivates the question of can we evaluate the performance of $\pi$ using only $\pi\old$? To do this, we'll define a new objective function called the **surrogate advantage**.
 
+Recall that value and action-value functions are defined respectively as
+$$\begin{align*}
+\V(s_t) &\defeq \E[a_t \sim \pi(\cdot \mid s_t) \\ s_{t+1}, r_{t+1} \sim p(\cdot, \cdot \mid s_t, a_t)]{ r_{t+1} + \gamma \V(s_{t+1}) } \\
+\Q(s_t, a_t) &\defeq \E[s_{t+1}, r_{t+1} \sim p(\cdot, \cdot \mid s_t, a_t)]{ r_{t+1} + \gamma \V(s_{t+1}) }.
+\end{align*}$$
+
+
+$$
+\begin{align*}
+J(\pi) &= \E[\start]{\V(s_0)} \\
+&= \E[\pi]{ \sum_{t=0}^\infty \gamma^t r_{t+1} } \\
+&= \E[\pi]{ \sum_{t=0}^\infty \gamma^t \big( \underbrace{r_{t+1} + \gamma\V[\pi\old](s_{t+1})}_{\Q[\pi\old](s_t, a_t)} - \gamma\V[\pi\old](s_{t+1}) \big) } \\
+&= \E[\pi]{ \sum_{t=0}^\infty \gamma^t \big( \underbrace{\Q[\pi\old](s_t, a_t)}_{\A[\pi\old](s_t, a_t) + \V[\pi\old](s_t)} - \gamma\V[\pi\old](s_{t+1}) \big) } \\
+&= \E[\pi]{ \sum_{t=0}^\infty \gamma^t \big( \A[\pi\old](s_t, a_t) + \underbrace{\V[\pi\old](s_t)}_{r_{t+1} + \gamma\V[\pi\old](s_{t+1})} - \gamma\V[\pi\old](s_{t+1}) \big) } \\
+&= \E[\pi]{ \sum_{t=0}^\infty \gamma^t \big( \A[\pi\old](s_t, a_t) + r_{t+1} + \gamma\V[\pi\old](s_{t+1}) - \gamma\V[\pi\old](s_{t+1}) \big) } \\
+&= \E[\pi]{ \sum_{t=0}^\infty \gamma^t \A[\pi\old](s_t, a_t) } + \E[\pi]{ \sum_{t=0}^\infty \gamma^t r_{t+1} } \\
+&= \E[\pi]{ \sum_{t=0}^\infty \gamma^t \A[\pi\old](s_t, a_t) } + J(\pi\old)
+\end{align*}
+$$
+
 Starting with the expected cumulative discounted rewards $J(\pi)$, we can replace $r_t$ with $\A[\pi\old](s_t, a_t)$:
 $$
 \begin{alignat*}{2}
 J(\pi) &= \E[\start]{ \V(s_0) } \\
 &= \E[\pi]{ \SUM \gamma^t r_t } && \text{(definition of $\V$)} \\
-&= \E[\pi]{ \SUM \gamma^t\big( r_t + \focus{\V[\pi\old](s_{t+1}) - \V[\pi\old](s_{t+1})} \big) } \\
-&= \E[\pi]{ \SUM \gamma^t\big( \focus{\Q[\pi\old](s_t, a_t)} - \V[\pi\old](s_{t+1}) \big) } && \text{(definition of $\Q[\pi\old]$)} \\
-&= \E[\pi]{ \SUM \gamma^t \big(\focus{\A[\pi\old](s_t, a_t) + \V[\pi\old](s_t)} - \V[\pi\old](s_{t+1})\big) } \qquad && \text{(definition of $\A[\pi\old]$)} \\
-&= \E[\pi]{ \SUM \gamma^t \A[\pi\old](s_t, a_t) } + \focus{\E[\start]{ \V[\pi\old](s_0) }} && \text{(telescoping sum)} \\
+&= \E[\pi]{ \SUM \gamma^t\big( r_t + \V[\pi\old](s_{t+1}) - \V[\pi\old](s_{t+1}) \big) } \\
+&= \E[\pi]{ \SUM \gamma^t\big( \Q[\pi\old](s_t, a_t) - \V[\pi\old](s_{t+1}) \big) } && \text{(definition of $\Q[\pi\old]$)} \\
+&= \E[\pi]{ \SUM \gamma^t \big(\A[\pi\old](s_t, a_t) + \V[\pi\old](s_t) - \V[\pi\old](s_{t+1})\big) } \qquad && \text{(definition of $\A[\pi\old]$)} \\
+&= \E[\pi]{ \SUM \gamma^t \A[\pi\old](s_t, a_t) } + \E[\start]{ \V[\pi\old](s_0) } && \text{(telescoping sum)} \\
 &= \E[\pi]{ \SUM \gamma^t \A[\pi\old](s_t, a_t) } + J(\pi\old).
 \end{alignat*}
 $$
